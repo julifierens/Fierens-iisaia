@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de usuario</title>
+    <style>
+        :root {
+            --color-bg: #eef2f7;
+            --color-surface: #ffffff;
+            --color-text: #1f2937;
+            --color-muted: #64748b;
+            --color-accent: #1d4ed8;
+            --color-border: #cbd5e1;
+            --color-sun: #f59e0b;
+            --color-earth: #2563eb;
+            --color-error-bg: #fef2f2;
+            --color-error-text: #b91c1c;
+            --color-error-border: #f87171;
+            --color-warning-bg: #fffbeb;
+            --color-warning-text: #92400e;
+            --color-warning-border: #fcd34d;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: var(--space-lg);
+            padding-bottom: 0;
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--color-muted);
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--space-lg);
+            width: 100%;
+        }
+
+        .security-warning {
+            background-color: var(--color-warning-bg);
+            color: var(--color-warning-text);
+            border: 1px solid var(--color-warning-border);
+            border-radius: var(--radius);
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            width: 100%;
+            max-width: 700px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        form {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: var(--space-lg);
+            width: 100%;
+            max-width: 700px;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            width: 100%;
+            padding: 12px var(--space-md);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--color-text);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+        }
+
+        .astro-section {
+            border-top: 1px solid var(--color-border);
+            border-bottom: 1px solid var(--color-border);
+            padding: var(--space-lg) 0;
+            margin: var(--space-md) 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .astro-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: var(--space-md);
+            font-weight: 600;
+            color: var(--color-text);
+            text-align: center;
+        }
+
+        .solar-system {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-color: var(--color-surface);
+        }
+
+        .sun {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            background-color: var(--color-sun);
+            border-radius: 50%;
+        }
+
+        .orbit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 220px;
+            height: 220px;
+            border: 1px dashed var(--color-border);
+            border-radius: 50%;
+        }
+
+        #earth-orbit-position {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transition: transform 0.25s linear;
+            z-index: 2;
+        }
+
+        .earth {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-color: var(--color-earth);
+            border-radius: 50%;
+            display: block;
+        }
+
+        .earth-marker {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 5px;
+            height: 5px;
+            background-color: var(--color-surface);
+            border-radius: 50%;
+        }
+
+        .month-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            color: var(--color-muted);
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            z-index: 1;
+            transition: color 0.2s, font-weight 0.2s;
+            pointer-events: none;
+        }
+
+        .month-label.active {
+            color: var(--color-accent);
+            font-weight: 700;
+        }
+
+        .time-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-md);
+            justify-content: center;
+            width: 100%;
+            margin-top: var(--space-md);
+            padding: var(--space-md);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            background-color: var(--color-bg);
+        }
+
+        .btn-control {
+            background-color: var(--color-surface);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-control:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .btn-control.active-speed {
+            background-color: var(--color-accent);
+            color: var(--color-surface);
+            border-color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .btn-reverse {
+            margin-left: auto;
+            border-style: dashed;
+        }
+
+        .time-info {
+            text-align: center;
+            margin-top: var(--space-md);
+            width: 100%;
+        }
+
+        .direction-indicator {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--color-muted);
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .time-instruction {
+            font-size: 0.95rem;
+            color: var(--color-text);
+        }
+
+        .date-display {
+            margin-top: var(--space-lg);
+            font-size: 1.1rem;
+            color: var(--color-text);
+            text-align: center;
+            padding: var(--space-md);
+            border-radius: var(--radius);
+            background-color: var(--color-bg);
+            width: 100%;
+            border: 1px solid var(--color-border);
+        }
+
+        .date-display strong {
+            color: var(--color-accent);
+            display: block;
+            font-size: 1.25rem;
+            margin-top: 4px;
+        }
+
+        .error-message {
+            background-color: var(--color-error-bg);
+            color: var(--color-error-text);
+            border: 1px solid var(--color-error-border);
+            border-radius: var(--radius);
+            padding: var(--space-md);
+            font-size: 0.95rem;
+            display: none;
+            text-align: center;
+        }
+
+        /* Botones principales */
+        button[type="submit"], #btn-resume, #confirm-final {
+            background-color: var(--color-accent);
+            color: var(--color-surface);
+            border: none;
+            border-radius: var(--radius);
+            padding: 14px var(--space-lg);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-family: inherit;
+            width: 100%;
+        }
+        
+        button[type="submit"]:hover, #btn-resume:hover, #confirm-final:hover {
+            opacity: 0.9;
+        }
+        
+        button[type="submit"] {
+            margin-top: var(--space-md);
+        }
+
+        #btn-resume {
+            background-color: var(--color-text);
+            display: none;
+            margin-top: var(--space-md);
+        }
+
+        #edit-data {
+            background-color: var(--color-surface);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 14px var(--space-lg);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            flex: 1;
+            min-width: 250px;
+        }
+
+        #edit-data:hover {
+            border-color: var(--color-text);
+            background-color: var(--color-bg);
+        }
+        
+        #confirm-final {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        /* Secciones de revisión y confirmación */
+        .feedback-section {
+            max-width: 700px;
+            width: 100%;
+            padding: var(--space-lg);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            display: none;
+        }
+
+        .feedback-section h3 {
+            margin-bottom: 8px;
+            color: var(--color-text);
+            font-size: 1.3rem;
+        }
+        
+        .feedback-section p {
+            margin-bottom: var(--space-lg);
+            color: var(--color-muted);
+            font-size: 0.95rem;
+        }
+
+        .feedback-section ul {
+            list-style: none;
+            color: var(--color-text);
+            background-color: var(--color-bg);
+            padding: var(--space-md);
+            border-radius: var(--radius);
+            margin-bottom: var(--space-lg);
+        }
+
+        .feedback-section li {
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+        
+        .feedback-section li:last-child {
+            margin-bottom: 0;
+        }
+
+        .review-buttons {
+            display: flex;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        footer {
+            text-align: center;
+            padding: var(--space-lg);
+            color: var(--color-muted);
+            font-size: 0.875rem;
+            margin-top: auto;
+        }
+
+        @media (max-width: 600px) {
+            .btn-reverse {
+                margin-left: 0;
+                width: 100%;
+            }
+            .time-controls {
+                flex-direction: column;
+            }
+            .review-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Registro de usuario</h1>
+        <p>Por favor, complete sus datos personales para continuar.</p>
+    </header>
+
+    <main>
+        <!-- Mensaje de castigo por equivocarse -->
+        <div id="security-warning" class="security-warning" aria-live="polite">
+            Por motivos de seguridad, todos los datos anteriores fueron descartados. Complete nuevamente el formulario.
+        </div>
+
+        <!-- PASO 1: Formulario -->
+        <form id="registroForm" novalidate>
+            <label>
+                Nombre
+                <input type="text" id="nombre" required>
+            </label>
+            
+            <label>
+                Apellido
+                <input type="text" id="apellido" required>
+            </label>
+            
+            <label>
+                Correo electrónico
+                <input type="email" id="email" required>
+            </label>
+
+            <section class="astro-section" aria-labelledby="astro-title">
+                <h2 id="astro-title">Selector astronómico de fecha</h2>
+                
+                <figure class="solar-system" id="solar-system">
+                    <span class="orbit"></span>
+                    <span class="sun"></span>
+                    
+                    <span id="earth-orbit-position">
+                        <span class="earth" id="earth">
+                            <span class="earth-marker"></span>
+                        </span>
+                    </span>
+                </figure>
+                
+                <section class="time-controls">
+                    <button type="button" id="speed-slow" class="btn-control">Lento — 1 día</button>
+                    <button type="button" id="speed-medium" class="btn-control active-speed">Rápido — 7 días</button>
+                    <button type="button" id="speed-fast" class="btn-control">Muy rápido — 30 días</button>
+                    
+                    <button type="button" id="reverse-time" class="btn-control btn-reverse">Invertir sentido temporal</button>
+                </section>
+
+                <div class="time-info">
+                    <p id="direction-indicator" class="direction-indicator">Dirección: HACIA EL PASADO</p>
+                    <p id="time-instruction" class="time-instruction">
+                        El tiempo está retrocediendo automáticamente.<br>Deténgalo exactamente en su fecha de nacimiento.
+                    </p>
+                </div>
+
+                <p class="date-display">
+                    Fecha temporal actual: 
+                    <strong id="date-output"></strong>
+                </p>
+            </section>
+
+            <div id="form-error" class="error-message" aria-live="polite"></div>
+
+            <button type="submit" id="btn-submit">Confirmar fecha (detener tiempo)</button>
+            <button type="button" id="btn-resume">Reanudar tiempo</button>
+        </form>
+
+        <!-- PASO 2: Revisión -->
+        <section id="revision-section" class="feedback-section" aria-live="polite">
+            <h3>Revise sus datos antes de continuar</h3>
+            <p>Verifique especialmente la fecha seleccionada antes de confirmar el registro.</p>
+            <ul id="revision-list"></ul>
+            
+            <div class="review-buttons">
+                <button type="button" id="confirm-final">Confirmar definitivamente</button>
+                <button type="button" id="edit-data">Volver y corregir datos</button>
+            </div>
+        </section>
+
+        <!-- PASO 3: Confirmado -->
+        <section id="confirmed-section" class="feedback-section" aria-live="polite">
+            <h3>Registro completado correctamente</h3>
+            <p>Sus datos han sido guardados en el sistema institucional.</p>
+            <ul id="confirmed-list"></ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Sistema Institucional. Todos los derechos reservados.</p>
+    </footer>
+
+    <script>
+        // --- 1. Variables de Estado ---
+        let paso = "formulario"; // "formulario" | "revision" | "confirmado"
+        
+        let datosUsuario = {
+            nombre: "",
+            apellido: "",
+            email: ""
+        };
+
+        let fechaJS = new Date();
+        fechaJS.setHours(0, 0, 0, 0);
+        const FECHA_HOY = new Date(fechaJS); // Referencia límite inmutable
+
+        let dia = fechaJS.getDate();
+        let mes = fechaJS.getMonth() + 1;
+        let anio = fechaJS.getFullYear();
+
+        let tiempoCorriendo = true;
+        let direccionTiempo = -1; // -1: Pasado, 1: Futuro
+        let velocidadTiempo = 7;
+        let intervaloTiempo = null;
+
+        const ANIO_MIN = 1900;
+        
+        // Variables para animaciones continuas
+        let earthRotAngle = 0;
+        let lastTimestamp = null;
+        let animationFrameId = null;
+
+        // --- 2. Referencias del DOM y Constantes ---
+        const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const radioOrbita = 110; 
+        const radioTexto = 160;  
+
+        const solarSystemEl = document.getElementById('solar-system');
+        const earthOrbitEl = document.getElementById('earth-orbit-position');
+        const earthEl = document.getElementById('earth');
+        
+        const dateOutputEl = document.getElementById('date-output');
+        const directionIndicatorEl = document.getElementById('direction-indicator');
+        const timeInstructionEl = document.getElementById('time-instruction');
+        
+        const btnSpeedSlow = document.getElementById('speed-slow');
+        const btnSpeedMedium = document.getElementById('speed-medium');
+        const btnSpeedFast = document.getElementById('speed-fast');
+        const btnReverse = document.getElementById('reverse-time');
+        
+        const formEl = document.getElementById('registroForm');
+        const errorEl = document.getElementById('form-error');
+        const btnSubmit = document.getElementById('btn-submit');
+        const btnResume = document.getElementById('btn-resume');
+
+        const revisionSection = document.getElementById('revision-section');
+        const confirmedSection = document.getElementById('confirmed-section');
+        const securityWarningEl = document.getElementById('security-warning');
+
+        // --- 3. Motor Temporal ---
+        function tick() {
+            if (!tiempoCorriendo) return;
+
+            let testDate = new Date(fechaJS);
+            testDate.setDate(testDate.getDate() + (direccionTiempo * velocidadTiempo));
+
+            if (testDate > FECHA_HOY) {
+                fechaJS = new Date(FECHA_HOY);
+            } else if (testDate.getFullYear() < ANIO_MIN) {
+                fechaJS = new Date(ANIO_MIN, 0, 1);
+            } else {
+                fechaJS = testDate;
+            }
+
+            dia = fechaJS.getDate();
+            mes = fechaJS.getMonth() + 1;
+            anio = fechaJS.getFullYear();
+
+            updateUI();
+        }
+
+        function iniciarTiempo() {
+            if (intervaloTiempo === null) {
+                tiempoCorriendo = true;
+                intervaloTiempo = setInterval(tick, 250);
+                
+                lastTimestamp = null; 
+                animationFrameId = requestAnimationFrame(animarRotacionTierra);
+            }
+        }
+
+        function detenerTiempo() {
+            tiempoCorriendo = false;
+            if (intervaloTiempo !== null) {
+                clearInterval(intervaloTiempo);
+                intervaloTiempo = null;
+            }
+            if (animationFrameId !== null) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        function animarRotacionTierra(timestamp) {
+            if (!tiempoCorriendo) return;
+            
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            const baseSpin = 0.15; 
+            earthRotAngle += baseSpin * delta * velocidadTiempo * direccionTiempo;
+            
+            earthEl.style.transform = `rotate(${earthRotAngle}deg)`;
+            
+            animationFrameId = requestAnimationFrame(animarRotacionTierra);
+        }
+
+        // --- 4. Renderizado Central ---
+        function updateUI() {
+            // Lógica de visibilidad por pasos
+            formEl.style.display = (paso === "formulario") ? "flex" : "none";
+            revisionSection.style.display = (paso === "revision") ? "block" : "none";
+            confirmedSection.style.display = (paso === "confirmado") ? "block" : "none";
+
+            const mesNombre = nombresMeses[mes - 1].toUpperCase();
+            const fechaFormateada = `${dia} / ${mesNombre} / ${anio}`;
+
+            if (paso === "formulario") {
+                // Actualizar UI del form
+                dateOutputEl.textContent = fechaFormateada;
+
+                if (direccionTiempo === -1) {
+                    directionIndicatorEl.textContent = "Dirección: HACIA EL PASADO";
+                    timeInstructionEl.textContent = "El tiempo está retrocediendo automáticamente. Deténgalo exactamente en su fecha de nacimiento.";
+                } else {
+                    directionIndicatorEl.textContent = "Dirección: HACIA EL FUTURO";
+                    timeInstructionEl.textContent = "El tiempo está avanzando automáticamente. Deténgalo exactamente en su fecha de nacimiento.";
+                }
+
+                btnSpeedSlow.classList.toggle('active-speed', velocidadTiempo === 1);
+                btnSpeedMedium.classList.toggle('active-speed', velocidadTiempo === 7);
+                btnSpeedFast.classList.toggle('active-speed', velocidadTiempo === 30);
+
+                const baseDate = new Date(ANIO_MIN, 0, 1);
+                const diasTotales = (fechaJS - baseDate) / (1000 * 60 * 60 * 24);
+                const anguloContinuo = (diasTotales / 365.2425) * 360;
+
+                earthOrbitEl.style.transform = `
+                    translate(-50%, -50%) 
+                    rotate(${anguloContinuo}deg) 
+                    translateY(-${radioOrbita}px)
+                `;
+
+                document.querySelectorAll('.month-label').forEach((label, index) => {
+                    if (index + 1 === mes) {
+                        label.classList.add('active');
+                    } else {
+                        label.classList.remove('active');
+                    }
+                });
+            } else if (paso === "revision") {
+                document.getElementById('revision-list').innerHTML = `
+                    <li><strong>Nombre:</strong> ${datosUsuario.nombre}</li>
+                    <li><strong>Apellido:</strong> ${datosUsuario.apellido}</li>
+                    <li><strong>Correo electrónico:</strong> ${datosUsuario.email}</li>
+                    <li><strong>Fecha de nacimiento:</strong> ${fechaFormateada}</li>
+                `;
+            } else if (paso === "confirmado") {
+                document.getElementById('confirmed-list').innerHTML = `
+                    <li><strong>Nombre:</strong> ${datosUsuario.nombre}</li>
+                    <li><strong>Apellido:</strong> ${datosUsuario.apellido}</li>
+                    <li><strong>Correo electrónico:</strong> ${datosUsuario.email}</li>
+                    <li><strong>Fecha de nacimiento:</strong> ${fechaFormateada}</li>
+                `;
+            }
+        }
+
+        // --- 5. Inicialización e Interacciones ---
+        function initAstronomicalSelector() {
+            nombresMeses.forEach((nombre, index) => {
+                const span = document.createElement('span');
+                span.className = 'month-label';
+                span.textContent = nombre;
+                
+                const anguloGrados = index * 30;
+                span.style.transform = `
+                    translate(-50%, -50%) 
+                    rotate(${anguloGrados}deg) 
+                    translateY(-${radioTexto}px) 
+                    rotate(-${anguloGrados}deg)
+                `;
+                solarSystemEl.appendChild(span);
+            });
+
+            updateUI();
+            iniciarTiempo();
+        }
+
+        // Controles de tiempo
+        btnSpeedSlow.addEventListener('click', () => { velocidadTiempo = 1; updateUI(); });
+        btnSpeedMedium.addEventListener('click', () => { velocidadTiempo = 7; updateUI(); });
+        btnSpeedFast.addEventListener('click', () => { velocidadTiempo = 30; updateUI(); });
+
+        btnReverse.addEventListener('click', () => {
+            direccionTiempo *= -1;
+            updateUI();
+        });
+
+        btnResume.addEventListener('click', () => {
+            errorEl.style.display = 'none';
+            btnSubmit.style.display = 'block';
+            btnResume.style.display = 'none';
+            iniciarTiempo();
+        });
+
+        // Submit del formulario -> Pasa a REVISIÓN
+        formEl.addEventListener('submit', (e) => {
+            e.preventDefault();
+            detenerTiempo();
+            errorEl.style.display = 'none';
+
+            if (!formEl.checkValidity()) {
+                formEl.reportValidity();
+                btnSubmit.style.display = 'none';
+                btnResume.style.display = 'block';
+                return;
+            }
+
+            if (fechaJS > FECHA_HOY) {
+                errorEl.textContent = 'Error: La fecha de nacimiento seleccionada no puede ser posterior a hoy.';
+                errorEl.style.display = 'block';
+                btnSubmit.style.display = 'none';
+                btnResume.style.display = 'block';
+                return;
+            }
+
+            datosUsuario.nombre = document.getElementById('nombre').value;
+            datosUsuario.apellido = document.getElementById('apellido').value;
+            datosUsuario.email = document.getElementById('email').value;
+
+            paso = "revision";
+            updateUI();
+        });
+
+        // Botón Confirmar definitivamente -> Pasa a CONFIRMADO
+        document.getElementById('confirm-final').addEventListener('click', () => {
+            paso = "confirmado";
+            updateUI();
+        });
+
+        // Botón Editar datos -> DESTRUYE TODO y vuelve a FORMULARIO
+        document.getElementById('edit-data').addEventListener('click', () => {
+            // 1. Vaciar inputs del DOM
+            document.getElementById('nombre').value = "";
+            document.getElementById('apellido').value = "";
+            document.getElementById('email').value = "";
+            
+            // 2. Vaciar estado de datosUsuario
+            datosUsuario = { nombre: "", apellido: "", email: "" };
+            
+            // 3. Reiniciar fecha al presente real
+            fechaJS = new Date(FECHA_HOY);
+            dia = fechaJS.getDate();
+            mes = fechaJS.getMonth() + 1;
+            anio = fechaJS.getFullYear();
+            
+            // 4. Reiniciar flujo temporal
+            direccionTiempo = -1;
+            velocidadTiempo = 7;
+            
+            // 5. Volver al estado inicial
+            paso = "formulario";
+            
+            updateUI();
+            iniciarTiempo();
+
+            // 6. Mostrar mensaje punitivo
+            securityWarningEl.style.display = 'block';
+            setTimeout(() => {
+                securityWarningEl.style.display = 'none';
+            }, 6000);
+        });
+
+        // Boot
+        document.addEventListener('DOMContentLoaded', initAstronomicalSelector);
+    </script>
+</body>
+</html>
