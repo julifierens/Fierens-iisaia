@@ -69,8 +69,57 @@ no publicar esos archivos. La trazabilidad científica se conserva igual: los
 valores de referencia quedan fijados en la spec y la comparación con el original
 se puede repetir localmente.
 
+### Decisiones de la etapa 2 (motor científico)
+
+**Sin corrección de flexibilidad por defecto, como en el TP2.**
+`ParametrosProcesamiento.aplicar_correccion` vale `False`, igual que
+`apply_compliance_correction` en el contrato. Esto es distinto del SPTERO
+original: en la consola, Enter aplica la corrección. Con el mismo `.raw`, la web
+con los valores por defecto da el caso sin corrección (en `P3_304L_L.raw`,
+dm = 2,2709 mm) y Enter en la consola da el caso con corrección (dm = 1,7319 mm).
+Por qué: mantener el default del contrato del TP2, del que evoluciona el v1.1. La
+diferencia queda escrita en el docstring de `sptero_core/analisis.py`.
+
+**Un `.raw` dañado es un error de archivo, no una caída.** El original deja
+escapar `csv.Error` cuando el archivo tiene, por ejemplo, una comilla sin cerrar.
+`leer_raw` lo convierte en `ValueError`, que la API va a traducir a 400
+`INVALID_FILE`. Por qué: es un cambio de entrada/salida, no toca las reglas de
+lectura, y así el core cumple su regla de errores y la web nunca responde 500 por
+un archivo malo. Lo detectó la revisión final de la rama y tiene su test.
+
+**Comparar también `encontrar_inicio_tabla` con el original.** El plan comparaba
+8 funciones por AST y dejaba afuera esta, que también es copia textual. La sumé
+(la caracterización tiene 14 tests en vez de 13) porque la regla del core pide
+comparar cada función copiada.
+
+Los hallazgos de las revisiones que quedaron para más adelante están en
+[docs/pendientes.md](docs/pendientes.md).
+
 ## Cómo gestioné el contexto
 
+**Etapa 2.**
+- Comprobé la regla `deny` sobre `TP1/`: la sesión, abierta en `tp-final/`,
+  intentó editar `../TP1/README.md` y la herramienta lo rechazó ("File is in a
+  directory that is denied by your permission settings"). Era el chequeo que la
+  spec (§10) dejaba pendiente.
+- Las cuatro tareas se hicieron con subagentes: uno implementaba cada tarea y otro
+  la revisaba contra la spec y el original. Al final, una revisión de toda la rama
+  y el subagente `verificador-cientifico`. Así, la sesión principal no tuvo que
+  cargar las 1.500 líneas del script.
+- Cada commit lleva el `Co-Authored-By` del modelo que lo escribió (Haiku en las
+  tareas 1 a 3, Sonnet en la 4).
+
 ## Qué salió mal y cómo lo corregí
+
+**Etapa 2.**
+- **Un comando colgado.** El agente principal dejó un `cat` sin entrada al armar
+  un script de comparación, y el comando se colgó hasta que lo cortó. No tuvo
+  efectos.
+- **El plan no cubría el archivo dañado.** La revisión final encontró que un
+  `.raw` con una comilla sin cerrar hacía fallar a `leer_raw` con `csv.Error`, que
+  no es `ValueError`. Lo corregí con un test que primero falló.
+- **El docstring contradecía el código.** Decía que se usaban los valores por
+  defecto del original, y `aplicar_correccion` no lo es. Lo detectó el
+  verificador científico y lo corregí.
 
 ## Prompts

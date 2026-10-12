@@ -59,3 +59,12 @@ def test_menos_de_20_puntos(construir_raw, curva_sintetica):
     x, y = curva_sintetica
     with pytest.raises(ValueError, match="pocos puntos"):
         leer_raw(construir_raw(x[:19], y[:19]))
+
+
+def test_archivo_corrupto(construir_raw, curva_sintetica):
+    # Una comilla sin cerrar seguida de mucho texto hace que csv lance
+    # csv.Error ("field larger than field limit"), que no es un ValueError.
+    x, y = curva_sintetica
+    contenido = construir_raw(x, y) + b'0;"1;2;0\r\n' + b"a" * 200_000
+    with pytest.raises(ValueError, match="dañado"):
+        leer_raw(contenido)

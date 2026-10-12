@@ -1,9 +1,17 @@
 """Pipeline de análisis: reemplaza al main() interactivo del script original.
 
-Sigue la secuencia de main() (Programa SPTERO.py, líneas 979–1058 y 1203–1209)
-con los valores por defecto que el original ofrece en cada pregunta:
+Sigue la secuencia de main() (Programa SPTERO.py, líneas 979–1058 y 1203–1209):
 leer → invertir signo/ordenar → [con corrección: v = vref − F·C_P → reordenar →
 cero por precarga con F0 = 5 N] → Pm/dm → Rm → t/10.
+
+Valores por defecto:
+- C_P = 2,281e-4 mm/N, β = 0,277 y F0 = 5 N (sin desplazar F) son los que el
+  original ofrece al apretar Enter.
+- aplicar_correccion = False NO coincide con el original: en la consola, Enter
+  aplica la corrección (pregunta de la línea 988, default "s"). Se mantiene False
+  porque es el default del contrato heredado del TP2 (ProcessingRequest).
+  Con el mismo .raw, los valores por defecto de la web dan el caso sin corrección
+  y Enter en la consola da el caso con corrección.
 
 t/10 usa la rama sin MAO (mask_zonaI_used=None) porque MAO está fuera del MVP.
 """
