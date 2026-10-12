@@ -1,0 +1,507 @@
+openapi: 3.1.0
+info:
+  title: API de SPTERO Web
+  description: |
+    API para cargar, almacenar y procesar ensayos Small Punch Test (SPT) sobre
+    probetas lisas. Cada ensayo guarda su archivo original y tiene, como máximo, un
+    resultado (Pm, dm, Rm y fluencia por t/10). Volver a procesar un ensayo reemplaza ese resultado.
+
+    **Formato del archivo.** Es el export de la máquina de ensayos (Instron),
+    que se guarda con extensión `.raw` pero es texto separado por `;`. Tiene
+    un encabezado de metadatos y después una tabla. Se acepta con extensión
+    `.raw` o `.csv`, porque se valida el contenido y no la extensión:
+
+    - la tabla empieza en la primera fila que comienza con `"Time` y contiene
+      `Load` y `;`;
+    - esa fila tiene que incluir las columnas `"Extension mm"` y `"Load N"`;
+    - el separador decimal puede ser punto o coma;
+    - hacen falta al menos 20 filas con valores numéricos en esas dos columnas.
+
+    Los metadatos del encabezado (espesor, fecha, etc.) no se leen: los datos
+    de la probeta se cargan junto con el archivo. El archivo se lee con las
+    funciones de lectura del programa SPTERO original.
+
+    **Cambios en v1.1 (TP final).** Se suma la fluencia por t/10 al resultado; el
+    cero por precarga se aplica solo con la corrección de flexibilidad, como en el
+    SPTERO original; y se puede corregir el espesor de un ensayo
+    (`PATCH /tests/{testId}`).
+  version: 1.1.0
+
+tags:
+  - name: Ensayos
+    description: Carga, consulta y borrado de ensayos
+  - name: Resultados
+    description: Procesamiento y consulta del resultado de un ensayo
+
+paths:
+  /tests:
+    get:
+      tags: [Ensayos]
+      summary: Lista los ensayos cargados (historial)
+      description: Cada ensayo incluye su resultado vigente, o `null` si todavía no se procesó. Ordenados del más reciente al más antiguo.
+      responses:
+        '200':
+          description: Lista de ensayos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Test'
+    post:
+      tags: [Ensayos]
+      summary: Carga un ensayo nuevo
+      description: Sube el archivo del ensayo junto con los datos de la probeta. El archivo se conserva sin modificar.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TestUpload'
+      responses:
+        '201':
+          description: Ensayo creado
+          headers:
+            Location:
+              description: URL del ensayo creado
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+        '400':
+          description: |
+            Falta un campo o `thickness_mm` no es mayor que cero
+            (`INVALID_PARAMETERS`), o el archivo no respeta el formato descrito
+            arriba: no tiene la fila de encabezado de la tabla, le faltan las
+            columnas `"Extension mm"` o `"Load N"`, o tiene menos de 20 puntos
+            válidos (`INVALID_FILE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tests/{testId}:
+    parameters:
+      - $ref: '#/components/parameters/TestId'
+    get:
+      tags: [Ensayos]
+      summary: Obtiene un ensayo
+      responses:
+        '200':
+          description: Ensayo encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+        '404':
+          $ref: '#/components/responses/TestNotFound'
+    patch:
+      tags: [Ensayos]
+      summary: Corrige el espesor de un ensayo y recalcula su resultado
+      description: |
+        Solo se puede corregir `thickness_mm`. Si el ensayo tiene resultado, se
+        recalcula con los mismos parámetros de procesamiento y se reemplaza (no
+        se guardan versiones). El cambio de espesor y el nuevo resultado se
+        guardan juntos: si el recálculo falla, no cambia ni el espesor ni el
+        resultado anterior. Si el espesor es igual al actual, no cambia nada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestUpdate'
+      responses:
+        '200':
+          description: Ensayo actualizado, con su resultado recalculado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Test'
+        '400':
+          description: Falta `thickness_mm` o no es un número mayor que cero (`INVALID_PARAMETERS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/TestNotFound'
+        '422':
+          description: |
+            El recálculo con el nuevo espesor no se pudo hacer
+            (`PROCESSING_FAILED`). No se guardó ningún cambio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Ensayos]
+      summary: Borra un ensayo
+      description: Borra el ensayo, su archivo original y su resultado, si lo tiene.
+      responses:
+        '204':
+          description: Ensayo borrado
+        '404':
+          $ref: '#/components/responses/TestNotFound'
+
+  /tests/{testId}/file:
+    parameters:
+      - $ref: '#/components/parameters/TestId'
+    get:
+      tags: [Ensayos]
+      summary: Descarga el archivo original del ensayo
+      description: Devuelve el archivo tal como se subió, byte a byte, con su nombre original.
+      responses:
+        '200':
+          description: Archivo original
+          headers:
+            Content-Disposition:
+              description: Indica el nombre original del archivo, por ejemplo `attachment; filename="P3_304L_L.raw"`
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/TestNotFound'
+
+  /tests/{testId}/curve:
+    parameters:
+      - $ref: '#/components/parameters/TestId'
+    get:
+      tags: [Ensayos]
+      summary: Obtiene la curva carga–desplazamiento para graficar
+      description: |
+        Con `source=raw` devuelve la curva tal como la lee SPTERO del archivo
+        original: columnas `"Extension mm"` y `"Load N"`, con el signo
+        invertido si los valores venían mayormente negativos (la máquina
+        registra la compresión con signo negativo) y ordenada por
+        desplazamiento creciente. Para el archivo sin ninguna transformación
+        está `GET /tests/{testId}/file`.
+
+        Con `source=processed` devuelve la curva que se usó para calcular el
+        resultado vigente (si se pidió la corrección por compliance, corregida,
+        reordenada y con el cero por precarga), en el mismo sistema de coordenadas que
+        `dm_mm`.
+      parameters:
+        - name: source
+          in: query
+          required: false
+          description: Qué curva devolver
+          schema:
+            type: string
+            enum: [raw, processed]
+            default: raw
+      responses:
+        '200':
+          description: Curva del ensayo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Curve'
+        '400':
+          description: El valor de `source` no es `raw` ni `processed` (`INVALID_PARAMETERS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            El ensayo no existe (`TEST_NOT_FOUND`), o se pidió
+            `source=processed` y el ensayo todavía no se procesó
+            (`RESULT_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tests/{testId}/result:
+    parameters:
+      - $ref: '#/components/parameters/TestId'
+    get:
+      tags: [Resultados]
+      summary: Obtiene el resultado vigente del ensayo
+      responses:
+        '200':
+          description: Resultado del ensayo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '404':
+          description: |
+            El ensayo no existe (`TEST_NOT_FOUND`), o existe pero todavía no se
+            procesó (`RESULT_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags: [Resultados]
+      summary: Procesa el ensayo y guarda su resultado
+      description: |
+        Calcula Pm, dm, Rm y la fluencia por t/10 a partir del archivo original y reemplaza el resultado anterior, si existía. No se guardan versiones.
+
+        El procesamiento sigue estos pasos, todos con funciones del programa
+        SPTERO original:
+
+        1. Lee la curva (la misma que devuelve `source=raw`).
+        2. Si `apply_compliance_correction` es `true`: corrige el
+           desplazamiento con v = vref − F·C_P, reordena por desplazamiento y
+           aplica el cero por precarga con F0 = 5 N (toma como contacto el
+           primer punto con carga mayor o igual a 5 N, descarta los anteriores
+           y pone el desplazamiento en 0 ahí; si ningún punto llega a 5 N, la
+           curva sigue sin cambios). Sin corrección no se aplica el cero, igual
+           que en el SPTERO original.
+        3. Pm es la carga máxima y dm su desplazamiento; Rm = β·Pm / (dm·t),
+           con t = `thickness_mm` del ensayo.
+        4. Fluencia por t/10: recta elástica ajustada con los puntos de carga
+           hasta el 10 % de Pm, desplazada t/10; Py es su cruce con la curva y
+           σy = 0,346·Py/t². Si no hay cruce, los tres campos de t/10 son `null`.
+
+        Los campos que no se envían toman su valor por defecto, no el del
+        resultado anterior: el cuerpo describe el procesamiento completo.
+
+        La operación es idempotente: repetir el mismo pedido deja el mismo
+        resultado. Si los parámetros coinciden con los del resultado vigente,
+        el resultado no se modifica (tampoco `processed_at`).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessingRequest'
+      responses:
+        '200':
+          description: Resultado calculado y guardado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '400':
+          description: Algún parámetro tiene un tipo inválido o no es mayor que cero (`INVALID_PARAMETERS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/TestNotFound'
+        '422':
+          description: |
+            El pedido es válido pero la curva no permite calcular el resultado:
+            dm queda menor o igual a cero, por lo que Rm no se puede calcular
+            (`PROCESSING_FAILED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    TestId:
+      name: testId
+      in: path
+      required: true
+      description: Identificador del ensayo
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+  responses:
+    TestNotFound:
+      description: El ensayo no existe (`TEST_NOT_FOUND`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    TestUpload:
+      type: object
+      description: Datos que se envían al cargar un ensayo
+      required: [file, material, thickness_mm]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Archivo del ensayo (`.raw` o `.csv`) con el formato descrito en la introducción
+        material:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Material de la probeta
+          examples: ['304L']
+        thickness_mm:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          description: Espesor inicial de la probeta, en mm
+          examples: [0.5]
+
+    TestUpdate:
+      type: object
+      description: Corrección del espesor de un ensayo
+      required: [thickness_mm]
+      properties:
+        thickness_mm:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          description: Espesor inicial corregido, en mm
+          examples: [0.48]
+
+    Test:
+      type: object
+      description: Un ensayo cargado
+      required: [id, filename, material, thickness_mm, uploaded_at, point_count, result]
+      properties:
+        id:
+          type: integer
+          format: int64
+        filename:
+          type: string
+          description: Nombre original del archivo
+          examples: ['P3_304L_L.raw']
+        material:
+          type: string
+          examples: ['304L']
+        thickness_mm:
+          type: number
+          format: double
+          examples: [0.5]
+        uploaded_at:
+          type: string
+          format: date-time
+        point_count:
+          type: integer
+          minimum: 20
+          description: Cantidad de puntos válidos leídos del archivo
+          examples: [582]
+        result:
+          description: Resultado vigente, o `null` si el ensayo no se procesó
+          oneOf:
+            - $ref: '#/components/schemas/Result'
+            - type: 'null'
+
+    ProcessingRequest:
+      type: object
+      description: Parámetros del procesamiento. Todos son opcionales.
+      properties:
+        apply_compliance_correction:
+          type: boolean
+          default: false
+          description: Si es `true`, corrige el desplazamiento con v = vref − F·C_P
+        compliance_mm_per_n:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          default: 0.0002281
+          description: C_P en mm/N. Se ignora si `apply_compliance_correction` es `false`.
+        beta:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+          default: 0.277
+          description: β para Rm = β·Pm / (dm·t)
+
+    ProcessingParameters:
+      type: object
+      description: Parámetros con los que se calculó un resultado
+      required: [apply_compliance_correction, compliance_mm_per_n, beta]
+      properties:
+        apply_compliance_correction:
+          type: boolean
+        compliance_mm_per_n:
+          type: ['number', 'null']
+          format: double
+          description: C_P usado, o `null` si no se aplicó la corrección
+        beta:
+          type: number
+          format: double
+
+    Result:
+      type: object
+      description: Resultado del procesamiento de un ensayo
+      required: [pm_n, dm_mm, rm_mpa, py_t10_n, py_t10_displacement_mm, sigma_y_t10_mpa, parameters, processed_at]
+      properties:
+        pm_n:
+          type: number
+          format: double
+          description: Carga máxima Pm, en N
+          examples: [2372]
+        dm_mm:
+          type: number
+          format: double
+          description: Desplazamiento a carga máxima, en mm, sobre la curva procesada
+          examples: [2.271]
+        rm_mpa:
+          type: number
+          format: double
+          description: Resistencia estimada Rm, en MPa
+          examples: [579]
+        py_t10_n:
+          type: ['number', 'null']
+          format: double
+          description: Carga de fluencia Py por el método t/10, en N, o `null` si no hubo cruce
+          examples: [274.9]
+        py_t10_displacement_mm:
+          type: ['number', 'null']
+          format: double
+          description: Desplazamiento de Py t/10 sobre la curva procesada, en mm, o `null`
+          examples: [0.2581]
+        sigma_y_t10_mpa:
+          type: ['number', 'null']
+          format: double
+          description: Límite elástico estimado σy = 0,346·Py/t², en MPa, o `null`
+          examples: [380.5]
+        parameters:
+          $ref: '#/components/schemas/ProcessingParameters'
+        processed_at:
+          type: string
+          format: date-time
+
+    Curve:
+      type: object
+      description: |
+        Curva carga–desplazamiento como dos arreglos paralelos: el punto i es
+        (`displacement_mm[i]`, `load_n[i]`). Los dos arreglos tienen el mismo largo.
+      required: [test_id, source, displacement_mm, load_n]
+      properties:
+        test_id:
+          type: integer
+          format: int64
+        source:
+          type: string
+          enum: [raw, processed]
+        displacement_mm:
+          type: array
+          items:
+            type: number
+            format: double
+        load_n:
+          type: array
+          items:
+            type: number
+            format: double
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - TEST_NOT_FOUND
+            - RESULT_NOT_FOUND
+            - INVALID_FILE
+            - INVALID_PARAMETERS
+            - PROCESSING_FAILED
+          description: Código estable, pensado para que lo interprete el frontend
+        message:
+          type: string
+          description: Descripción legible en español
+          examples: ['El ensayo 42 no existe']
