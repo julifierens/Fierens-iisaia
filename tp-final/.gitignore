@@ -1,0 +1,13 @@
+# Base local y datos experimentales: no se publican
+data/
+tests/data/
+*.raw
+*.db
+
+# Entorno de Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Configuración local del agente (la compartida es settings.json)
+.claude/settings.local.json

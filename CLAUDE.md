@@ -17,7 +17,7 @@ entrega, no documentación de uso. El `README.md` de la raíz es el índice.
 |---------|---------|--------|
 | `TP1/` | Bad UI: selector astronómico de fecha (un solo HTML) | Entregado. **Congelado: no se modifica.** |
 | `TP2/` | Contrato OpenAPI de una API para SPTERO | En curso |
-| (a crear) | Trabajo final: SPTERO Web, individual, construido sobre el contrato del TP2 | Pendiente |
+| `tp-final/` | Trabajo final: SPTERO Web, individual, construido sobre el contrato del TP2 | En curso |
 
 ## Qué se evalúa, y por qué trabajamos así
 
@@ -57,5 +57,12 @@ etapa cerrada), PR a `main`. Mensajes en español: `tipo: descripción en minús
 - Los informes siguen la estructura de `TP1/README.md`: qué me propuse construir,
   decisiones que tomé yo, qué salió mal y cómo lo corregí, prompts.
 
-<!-- Al crear TP2/CLAUDE.md, rules o skills, agregar acá una sección
-     "Dónde seguir leyendo" con una tabla que apunte a cada uno. -->
+## Dónde seguir leyendo
+
+| Archivo | Qué tiene |
+|---------|-----------|
+| `tp-final/CLAUDE.md` | Mapa de carpetas, comandos y reglas de trabajo del TP final |
+| `tp-final/docs/superpowers/specs/` | Spec de SPTERO Web |
+| `tp-final/.claude/rules/` | Reglas por carpeta: motor científico y API |
+| `tp-final/.claude/skills/registrar-prompt/` | Skill para agregar entradas a `prompts.md` |
+| `tp-final/.claude/agents/verificador-cientifico.md` | Subagente que compara el core con el SPTERO original |
