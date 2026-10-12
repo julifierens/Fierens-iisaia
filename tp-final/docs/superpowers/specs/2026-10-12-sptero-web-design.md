@@ -106,7 +106,8 @@ web respeta:
 5. **Rm** = β·Pm / (dm·t). Si dm ≤ 0 o t ≤ 0 → error `PROCESSING_FAILED`.
 6. **Py_t/10**: recta elástica ajustada sobre los puntos con F ≤ 0,10·Pm (o los
    primeros max(10, 5 %) si son menos de 8), desplazada t/10; Py es el cruce con la
-   curva. **σy_t/10** = 0,346·Py/t². Si no hay cruce, ambos son `null` (no es error).
+   curva, y su desplazamiento queda como `py_t10_displacement_mm`. **σy_t/10** =
+   0,346·Py/t². Si no hay cruce, los tres son `null` (no es error).
 
 Los parámetros que se usan en el original con su valor por defecto son los mismos:
 C_P = 2,281e-4 mm/N, β = 0,277, F0 = 5 N.
@@ -153,7 +154,10 @@ ahí; la carpeta `TP2/` no se toca. Se mantienen los 8 endpoints y se agrega uno
 | GET | `/tests/{testId}/result` | consultar resultado | 200 · 404 |
 
 **Cambios v1.0 → v1.1:**
-1. `Result` suma `py_t10_n` y `sigma_y_t10_mpa` (`number | null`).
+1. `Result` suma `py_t10_n`, `py_t10_displacement_mm` y `sigma_y_t10_mpa`
+   (`number | null`: `null` si no se encuentra el cruce). El desplazamiento de Py
+   es el `x_py` de `estimar_py_t10` y permite marcar el punto en el gráfico
+   (agregado al revisar el plan, 12/10/2026).
 2. La descripción del pipeline pasa a la secuencia de la sección 4: el cero por
    precarga se aplica solo con corrección de flexibilidad (D1; revierte la
    decisión 4 del TP2).
@@ -216,6 +220,7 @@ CREATE TABLE IF NOT EXISTS results (
     dm_mm                        REAL    NOT NULL,
     rm_mpa                       REAL    NOT NULL,
     py_t10_n                     REAL,               -- NULL si no hubo cruce
+    py_t10_displacement_mm       REAL,               -- NULL si no hubo cruce
     sigma_y_t10_mpa              REAL,
     processed_at                 TEXT    NOT NULL
 );
@@ -312,14 +317,16 @@ TDD: cada test se ve fallar antes de escribir el código que lo hace pasar.
    referencia de la sección 4. Si las variables no están definidas, se saltean
    (`pytest.skip`) con un mensaje claro: ni el script original ni el `.raw` se
    publican en el repositorio.
-2. **Core con curva sintética** (`tests/test_core.py`). Se genera en el test un
+2. **Core con curva sintética** (`tests/test_raw.py`, `tests/test_calculos.py` y
+   `tests/test_analisis.py`, uno por módulo del core). Se genera en el test un
    `.raw` mínimo (encabezado + tabla) con una curva conocida: detección de
    encabezado, coma decimal, inversión de signo, orden, error con < 20 puntos y sin
    encabezado, Pm/dm, Rm, t/10 con y sin cruce, y cero por precarga aplicado solo
    con corrección (D1), con una curva que arranca por debajo de 5 N.
 3. **Repositorio** (`tests/test_repository.py`) sobre una base temporal: alta,
    listado sin BLOB, reemplazo de resultado, borrado en cascada.
-4. **API** (`tests/test_api.py`) con `TestClient` y base temporal: cada endpoint y
+4. **Servicio y API** (`tests/test_service.py` para los casos de uso;
+   `tests/test_api.py` con `TestClient` y base temporal): cada endpoint y
    cada código de error de la sección 8, idempotencia de `PUT` y de `PATCH`, y
    que un `PATCH` que falla al recalcular no deja cambios a medias.
 5. **Contrato** (`tests/test_contrato.py`): las rutas y métodos de `app.openapi()`

@@ -148,3 +148,77 @@ porque el espesor es una medida de la probeta. Actualizó la spec (D1–D5 cerra
 contrato v1.1, interfaz, errores, tests), `CLAUDE.md`, la rule de la API, el
 subagente y el README, con los porqués marcados para completar. No implementó nada
 y se detuvo antes del commit.
+
+---
+
+## 4 — Cerrar la etapa 0 y escribir el plan
+
+Sesión 1 (12/10/2026).
+
+```
+Muy bien, damos por aprobada la etapa 0.
+
+Completá los tres "Qué buscaba" de prompts.md con los objetivos que definimos y documentá brevemente la justificación de las nueve decisiones, basándote en los criterios que acordamos: simplicidad, reutilización del SPTERO original, trazabilidad científica y alcance razonable del MVP. No inventes motivaciones adicionales.
+
+Después hacé el commit de la etapa 0.
+
+Avanzá con la etapa 1 usando Superpowers writing-plans. Quiero un plan de implementación concreto, con tareas verificables, tests y criterios de aceptación. Aprovechá las skills y subagentes cuando corresponda.
+
+Recordá que el nuevo PATCH de espesor debe garantizar que, si falla el recálculo, no se modifiquen ni el espesor ni los resultados anteriores.
+
+Al terminar, detenete para que revisemos el plan antes de implementar. No hagas todavía el PR ni avances a la etapa 2.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Completó los "Qué buscaba" de las entradas 1 a 3, aclarando en el
+encabezado que los redactó el modelo a pedido mío, y justificó las nueve decisiones
+del README solo con los cuatro criterios. Commiteó la etapa 0 (`fd0a34a`).
+
+Con la skill `writing-plans` escribió el plan en
+`docs/superpowers/plans/2026-10-12-sptero-web.md`: 13 tareas en cuatro ramas, cada
+una con el test que tiene que fallar primero, el código y el resultado esperado.
+Antes de escribirlo comprobó que no hay Node instalado, así que la verificación de
+la interfaz usa el navegador integrado de la app (MCP) en lugar de Playwright.
+Detectó un hueco en la spec: para marcar Py_t/10 en el gráfico falta su
+desplazamiento, y propuso el campo `py_t10_displacement_mm`, marcado como cambio a
+confirmar. El requisito del PATCH quedó cubierto en tres niveles: transacción en la
+base (Task 6), cálculo antes de escribir (Task 7) y prueba de punta a punta (Task 8).
+
+Al verificar los valores esperados del plan con el script original, encontró un
+error propio: la curva sintética aplicaba un piso de 100 N a toda la curva en lugar
+de solo a la caída, lo que corría el cruce de t/10 a 2,34 mm y anulaba el cero por
+precarga. Varios tests habrían fallado por culpa del plan y no del código. Corrigió
+la curva y volvió a verificar todos los valores esperados contra el original. También
+corrigió un conteo de tests y un redondeo. Se detuvo sin PR y sin avanzar a la
+etapa 2.
+
+---
+
+## 5 — Aprobar el plan y preparar el PR de las etapas 0 y 1
+
+Sesión 1 (12/10/2026).
+
+```
+De acuerdo con las tres recomendaciones:
+
+1. Agregá py_t10_displacement_mm al contrato v1.1, nullable si no se encuentra el cruce.
+2. Usemos subagent-driven con Superpowers. Priorizá las verificaciones y revisiones que aporten valor, sin generar pasos innecesarios.
+3. Te autorizo a hacer commits por tarea dentro de cada etapa, siempre después de verificar los resultados. No hagas push, PR ni merge sin mi aprobación.
+
+Actualizá la spec y el plan, y hacé el commit de cierre de la etapa 1.
+Antes de iniciar el desarrollo, quiero integrar las etapas 0 y 1 en main mediante un PR, para que las próximas ramas partan de una base actualizada.
+No empieces todavía la etapa 2. Cuando termines, indicame cómo crear y fusionar el PR desde Claude Desktop o GitHub.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Agregó `py_t10_displacement_mm` a la spec (pipeline, cambios del
+contrato y tabla `results`) y alineó los nombres de los archivos de test. En el
+plan reemplazó el "cambio a confirmar" por las decisiones tomadas: ejecución
+subagent-driven, con un revisor por tarea enfocado en lo que más riesgo tiene en
+cada etapa (fidelidad al original, contrato y atomicidad del `PATCH`), la
+verificación en el navegador hecha por la sesión principal y una revisión de rama
+al cerrar cada etapa. También dejó escrita la autorización de commits por tarea,
+sin push, PR ni merge. Commiteó el cierre de la etapa 1 y, sin hacer push, explicó
+cómo crear y fusionar el PR.
