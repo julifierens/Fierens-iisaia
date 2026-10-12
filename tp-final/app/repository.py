@@ -1,10 +1,25 @@
 """Acceso a SQLite con SQL explícito (sqlite3 de la biblioteca estándar).
 
-Las escrituras usan `with con:`, que confirma la transacción si todo sale bien
-y la deshace si hay una excepción.
+La conexión está en modo autocommit de sqlite3 (`isolation_level=None`): Python
+no abre transacciones por su cuenta y el control es explícito. Las escrituras
+usan `transaccion(con)`, que abre `BEGIN IMMEDIATE`, confirma si todo sale bien
+y deshace si hay una excepción. Se puede anidar: si ya hay una transacción
+abierta (por ejemplo la de un caso de uso que lee, calcula y escribe), la de
+adentro no confirma y decide la de afuera.
+
+`BEGIN IMMEDIATE` toma el lock de escritura al empezar, así que dos pedidos que
+modifican el mismo ensayo se serializan: el segundo espera hasta `ESPERA_LOCK_S`
+y, cuando entra, lee lo que el primero ya confirmó. Si el lock no se libera en
+ese tiempo sqlite3 lanza `OperationalError` (la API responde 500; es aceptable
+para una app local y no hay reintentos).
 """
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+
+# Segundos que espera un pedido el lock de escritura de otro. El cálculo dura
+# milisegundos, así que 5 s sobra; si se vence, es un problema real.
+ESPERA_LOCK_S = 5.0
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS tests (
@@ -72,11 +87,30 @@ ON CONFLICT(test_id) DO UPDATE SET
 def conectar(ruta: str) -> sqlite3.Connection:
     if ruta != ":memory:":
         Path(ruta).parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(ruta, check_same_thread=False)
+    con = sqlite3.connect(ruta, check_same_thread=False, timeout=ESPERA_LOCK_S, isolation_level=None)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     con.executescript(ESQUEMA)
     return con
+
+
+@contextmanager
+def transaccion(con):
+    """Transacción de escritura: `BEGIN IMMEDIATE`, `COMMIT` o `ROLLBACK` si hay excepción.
+
+    Anidable: si la conexión ya está en una transacción, no hace nada y la de
+    afuera decide si confirma o deshace.
+    """
+    if con.in_transaction:
+        yield
+        return
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+    except BaseException:
+        con.execute("ROLLBACK")
+        raise
+    con.execute("COMMIT")
 
 
 def _a_dict(fila) -> dict:
@@ -108,7 +142,7 @@ def _a_dict(fila) -> dict:
 
 
 def crear_ensayo(con, filename, material, thickness_mm, point_count, raw_file: bytes, uploaded_at: str) -> int:
-    with con:
+    with transaccion(con):
         cursor = con.execute(
             "INSERT INTO tests (filename, material, thickness_mm, uploaded_at, point_count, raw_file) "
             "VALUES (?, ?, ?, ?, ?, ?)",
@@ -137,19 +171,19 @@ def _upsert_resultado(con, test_id: int, resultado: dict) -> None:
 
 
 def guardar_resultado(con, test_id: int, resultado: dict) -> None:
-    with con:
+    with transaccion(con):
         _upsert_resultado(con, test_id, resultado)
 
 
 def actualizar_espesor(con, test_id: int, thickness_mm: float, resultado: dict | None) -> None:
     """Cambia el espesor y, si se pasa, reemplaza el resultado en la misma transacción."""
-    with con:
+    with transaccion(con):
         con.execute("UPDATE tests SET thickness_mm = ? WHERE id = ?", (thickness_mm, test_id))
         if resultado is not None:
             _upsert_resultado(con, test_id, resultado)
 
 
 def borrar_ensayo(con, test_id: int) -> bool:
-    with con:
+    with transaccion(con):
         cursor = con.execute("DELETE FROM tests WHERE id = ?", (test_id,))
     return cursor.rowcount > 0

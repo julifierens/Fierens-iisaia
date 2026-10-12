@@ -96,25 +96,31 @@ def subir(con, filename: str, contenido: bytes, material: str, thickness_mm: flo
 
 
 def procesar(con, test_id: int, parametros: ParametrosProcesamiento) -> dict:
-    ensayo = _ensayo_o_404(con, test_id)
-    if ensayo["result"] is not None and _mismos_parametros(ensayo["result"], parametros):
-        return ensayo["result"]
-    nuevo = _calcular(_contenido(con, test_id), ensayo["thickness_mm"], parametros)
-    repository.guardar_resultado(con, test_id, nuevo)
-    return repository.obtener_ensayo(con, test_id)["result"]
+    # Lectura, cálculo y escritura en una sola transacción BEGIN IMMEDIATE: un
+    # PATCH concurrente espera y no puede cambiar el espesor a mitad de camino.
+    # Si el cálculo falla, la transacción se deshace y no queda nada a medias.
+    with repository.transaccion(con):
+        ensayo = _ensayo_o_404(con, test_id)
+        if ensayo["result"] is not None and _mismos_parametros(ensayo["result"], parametros):
+            return ensayo["result"]
+        nuevo = _calcular(_contenido(con, test_id), ensayo["thickness_mm"], parametros)
+        repository.guardar_resultado(con, test_id, nuevo)
+        return repository.obtener_ensayo(con, test_id)["result"]
 
 
 def corregir_espesor(con, test_id: int, thickness_mm: float) -> dict:
-    ensayo = _ensayo_o_404(con, test_id)
-    if ensayo["thickness_mm"] == thickness_mm:
-        return ensayo
-    nuevo = None
-    if ensayo["result"] is not None:
-        # Se calcula antes de escribir: si falla, no se tocó la base.
-        nuevo = _calcular(_contenido(con, test_id), thickness_mm, _parametros_de(ensayo["result"]))
-    # Espesor y resultado se guardan en una sola transacción.
-    repository.actualizar_espesor(con, test_id, thickness_mm, nuevo)
-    return repository.obtener_ensayo(con, test_id)
+    # Misma idea que `procesar`: se lee el resultado vigente con el lock tomado,
+    # así un PUT concurrente no puede cambiar los parámetros entre la lectura y
+    # la escritura. Espesor y resultado se guardan juntos o no se guarda nada.
+    with repository.transaccion(con):
+        ensayo = _ensayo_o_404(con, test_id)
+        if ensayo["thickness_mm"] == thickness_mm:
+            return ensayo
+        nuevo = None
+        if ensayo["result"] is not None:
+            nuevo = _calcular(_contenido(con, test_id), thickness_mm, _parametros_de(ensayo["result"]))
+        repository.actualizar_espesor(con, test_id, thickness_mm, nuevo)
+        return repository.obtener_ensayo(con, test_id)
 
 
 def resultado(con, test_id: int) -> dict:

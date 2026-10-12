@@ -93,3 +93,22 @@ def test_borrar_en_cascada(con):
     assert repository.obtener_ensayo(con, test_id) is None
     assert con.execute("SELECT COUNT(*) FROM results").fetchone()[0] == 0
     assert repository.borrar_ensayo(con, test_id) is False
+
+
+def test_transaccion_anidada_no_confirma_por_su_cuenta(con):
+    with pytest.raises(RuntimeError):
+        with repository.transaccion(con):
+            test_id = _crear(con)
+            repository.guardar_resultado(con, test_id, RESULTADO)
+            assert con.in_transaction  # las escrituras internas no confirmaron
+            raise RuntimeError("falla al final de la transacción externa")
+    assert not con.in_transaction
+    assert repository.listar_ensayos(con) == []
+
+
+def test_transaccion_confirma_al_salir_bien(con):
+    with repository.transaccion(con):
+        test_id = _crear(con)
+        assert con.in_transaction
+    assert not con.in_transaction
+    assert repository.obtener_ensayo(con, test_id) is not None
