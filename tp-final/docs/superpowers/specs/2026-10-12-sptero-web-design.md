@@ -112,6 +112,14 @@ web respeta:
 Los parámetros que se usan en el original con su valor por defecto son los mismos:
 C_P = 2,281e-4 mm/N, β = 0,277, F0 = 5 N.
 
+**Diferencia con el original: la corrección de flexibilidad está desactivada por
+defecto.** En la web, `apply_compliance_correction` (`aplicar_correccion` en el
+core) vale `false`, igual que en el contrato del TP2. En la consola del original,
+Enter aplica la corrección (pregunta de la línea 988, default `"s"`). Con el mismo
+`.raw`, los valores por defecto de la web dan el caso "Sin corrección" de la tabla
+de abajo y Enter en la consola da el caso "C_P = 2,281e-4 mm/N" (agregado al
+cerrar la etapa 2, 12/10/2026).
+
 > **Decisión D1 (cerrada) — cero por precarga: se sigue la secuencia del original.**
 > El cero se aplica solo dentro de la rama con corrección de flexibilidad (paso
 > 3.3). Esto revierte la decisión 4 del TP2, que lo aplicaba siempre; el cambio
