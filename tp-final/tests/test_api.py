@@ -193,3 +193,93 @@ def test_archivo_con_nombre_no_ascii(cliente, subir, raw_sintetico):
 def test_id_fuera_de_int64(cliente, metodo, cuerpo):
     r = cliente.request(metodo, "/tests/99999999999999999999", json=cuerpo)
     assert _codigo(r) == (400, "INVALID_PARAMETERS")
+
+
+def _mensaje(respuesta):
+    return respuesta.json()["message"]
+
+
+def _sin_ingles(mensaje):
+    assert "Input should" not in mensaje and "Field required" not in mensaje
+
+
+def test_mensaje_validacion_patch_espesor_cero(cliente, subir):
+    test_id = subir().json()["id"]
+    r = cliente.patch(f"/tests/{test_id}", json={"thickness_mm": 0})
+    assert _codigo(r) == (400, "INVALID_PARAMETERS")
+    assert _mensaje(r) == "Parámetros inválidos: thickness_mm: debe ser mayor que 0"
+    _sin_ingles(_mensaje(r))
+
+
+def test_mensaje_validacion_post_sin_espesor(cliente, raw_sintetico):
+    r = cliente.post("/tests", files={"file": ("s.raw", raw_sintetico)}, data={"material": "304L"})
+    assert _codigo(r) == (400, "INVALID_PARAMETERS")
+    assert _mensaje(r) == "Parámetros inválidos: thickness_mm: es obligatorio"
+    _sin_ingles(_mensaje(r))
+
+
+def test_mensaje_validacion_patch_cuerpo_roto(cliente, subir):
+    test_id = subir().json()["id"]
+    r = cliente.patch(f"/tests/{test_id}", content=b"{roto", headers={"content-type": "application/json"})
+    assert _codigo(r) == (400, "INVALID_PARAMETERS")
+    assert _mensaje(r) == "Parámetros inválidos: el cuerpo: JSON mal formado"
+    _sin_ingles(_mensaje(r))
+
+
+def test_mensaje_validacion_patch_cuerpo_null(cliente, subir):
+    test_id = subir().json()["id"]
+    r = cliente.patch(f"/tests/{test_id}", content=b"null", headers={"content-type": "application/json"})
+    assert _codigo(r) == (400, "INVALID_PARAMETERS")
+    _sin_ingles(_mensaje(r))
+    assert "el cuerpo" in _mensaje(r)
+
+
+@pytest.mark.parametrize("ruta", ["file", "curve", "result"])
+def test_get_ensayo_inexistente_por_endpoint(cliente, ruta):
+    assert _codigo(cliente.get(f"/tests/99/{ruta}")) == (404, "TEST_NOT_FOUND")
+
+
+def test_get_result_despues_de_procesar(cliente, subir):
+    test_id = subir().json()["id"]
+    procesado = cliente.put(f"/tests/{test_id}/result").json()
+    r = cliente.get(f"/tests/{test_id}/result")
+    assert r.status_code == 200
+    assert r.json() == procesado
+
+
+def test_put_beta_enorme_422_y_queda_sin_resultado(cliente, subir):
+    test_id = subir().json()["id"]
+    assert _codigo(cliente.put(f"/tests/{test_id}/result", json={"beta": 1e308})) == (422, "PROCESSING_FAILED")
+    assert _codigo(cliente.get(f"/tests/{test_id}/result")) == (404, "RESULT_NOT_FOUND")
+
+
+def test_put_espesor_minusculo_422(cliente, subir):
+    test_id = subir(thickness_mm="1e-170").json()["id"]
+    assert _codigo(cliente.put(f"/tests/{test_id}/result")) == (422, "PROCESSING_FAILED")
+    assert cliente.get(f"/tests/{test_id}").json()["result"] is None
+
+
+def test_patch_espesor_minusculo_422_y_no_cambia_nada(cliente, subir):
+    test_id = subir().json()["id"]
+    cliente.put(f"/tests/{test_id}/result")
+    antes = cliente.get(f"/tests/{test_id}").json()
+    assert _codigo(cliente.patch(f"/tests/{test_id}", json={"thickness_mm": 1e-200})) == (422, "PROCESSING_FAILED")
+    assert cliente.get(f"/tests/{test_id}").json() == antes
+
+
+def test_patch_espesor_entero_vale(cliente, subir):
+    test_id = subir().json()["id"]
+    r = cliente.patch(f"/tests/{test_id}", json={"thickness_mm": 1})
+    assert r.status_code == 200 and r.json()["thickness_mm"] == 1
+
+
+@pytest.mark.parametrize("valor", [True, "0.3"])
+def test_patch_espesor_estricto(cliente, subir, valor):
+    test_id = subir().json()["id"]
+    assert _codigo(cliente.patch(f"/tests/{test_id}", json={"thickness_mm": valor})) == (400, "INVALID_PARAMETERS")
+
+
+def test_put_correccion_como_texto_es_invalida(cliente, subir):
+    test_id = subir().json()["id"]
+    r = cliente.put(f"/tests/{test_id}/result", json={"apply_compliance_correction": "true"})
+    assert _codigo(r) == (400, "INVALID_PARAMETERS")

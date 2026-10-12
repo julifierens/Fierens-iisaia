@@ -26,6 +26,34 @@ PARAMETROS_INVALIDOS = {400: {"model": Error, "description": "Parámetros invál
 NO_PROCESABLE = {422: {"model": Error, "description": "No se pudo calcular el resultado (PROCESSING_FAILED)"}}
 
 
+# Mensajes de validación en español, por tipo de error de Pydantic.
+MENSAJES_VALIDACION = {
+    "missing": lambda ctx: "es obligatorio",
+    "greater_than": lambda ctx: f"debe ser mayor que {ctx.get('gt'):g}",
+    "less_than_equal": lambda ctx: f"debe ser menor o igual que {ctx.get('le'):g}",
+    "float_parsing": lambda ctx: "debe ser un número",
+    "float_type": lambda ctx: "debe ser un número",
+    "finite_number": lambda ctx: "debe ser un número finito",
+    "int_parsing": lambda ctx: "debe ser un entero",
+    "int_type": lambda ctx: "debe ser un entero",
+    "literal_error": lambda ctx: f"debe ser uno de: {ctx.get('expected')}",
+    "string_too_short": lambda ctx: f"debe tener al menos {ctx.get('min_length')} caracteres",
+    "string_too_long": lambda ctx: f"debe tener como máximo {ctx.get('max_length')} caracteres",
+    "bool_parsing": lambda ctx: "debe ser verdadero o falso",
+    "bool_type": lambda ctx: "debe ser verdadero o falso",
+    "json_invalid": lambda ctx: "JSON mal formado",
+    "model_attributes_type": lambda ctx: "debe ser un objeto JSON",
+    "dict_type": lambda ctx: "debe ser un objeto JSON",
+}
+
+
+def _mensaje_validacion(e: dict) -> str:
+    # En un JSON roto Pydantic pone la posición del error en la ubicación: no sirve al usuario.
+    ubicacion = "" if e["type"] == "json_invalid" else ".".join(str(p) for p in e["loc"][1:])
+    texto = MENSAJES_VALIDACION.get(e["type"], lambda ctx: "valor inválido")(e.get("ctx") or {})
+    return f"{ubicacion or 'el cuerpo'}: {texto}"
+
+
 def _content_disposition(nombre: str) -> str:
     """Cabecera de descarga; los nombres no ASCII van codificados (RFC 6266), como en FileResponse."""
     citado = quote(nombre)
@@ -54,7 +82,7 @@ def crear_app(ruta_db: str | None = None) -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     def error_validacion(_request, error: RequestValidationError):
-        detalle = "; ".join(f"{'.'.join(str(p) for p in e['loc'][1:])}: {e['msg']}" for e in error.errors())
+        detalle = "; ".join(_mensaje_validacion(e) for e in error.errors())
         return JSONResponse(status_code=400, content={"code": "INVALID_PARAMETERS", "message": f"Parámetros inválidos: {detalle}"})
 
     @app.get("/tests", response_model=list[Test], tags=["Ensayos"])

@@ -32,13 +32,13 @@ class Test(BaseModel):
 
 
 class TestUpdate(BaseModel):
-    thickness_mm: float = Field(gt=0, allow_inf_nan=False)
+    thickness_mm: float = Field(strict=True, gt=0, allow_inf_nan=False)
 
 
 class ProcessingRequest(BaseModel):
-    apply_compliance_correction: bool = False
-    compliance_mm_per_n: float = Field(default=2.281e-4, gt=0, allow_inf_nan=False)
-    beta: float = Field(default=0.277, gt=0, allow_inf_nan=False)
+    apply_compliance_correction: bool = Field(default=False, strict=True)
+    compliance_mm_per_n: float = Field(default=2.281e-4, strict=True, gt=0, allow_inf_nan=False)
+    beta: float = Field(default=0.277, strict=True, gt=0, allow_inf_nan=False)
 
 
 class Curve(BaseModel):

@@ -102,8 +102,8 @@ paths:
       summary: Corrige el espesor de un ensayo y recalcula su resultado
       description: |
         Solo se puede corregir `thickness_mm`. Si el ensayo tiene resultado, se
-        recalcula con los mismos parámetros de procesamiento y se reemplaza (no
-        se guardan versiones). El cambio de espesor y el nuevo resultado se
+        recalcula con los mismos parámetros de procesamiento y se reemplaza, con
+        un `processed_at` nuevo (no se guardan versiones). El cambio de espesor y el nuevo resultado se
         guardan juntos: si el recálculo falla, no cambia ni el espesor ni el
         resultado anterior. Si el espesor es igual al actual, no cambia nada.
       requestBody:

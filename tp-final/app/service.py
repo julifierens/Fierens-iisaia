@@ -3,6 +3,7 @@
 Traducen los ValueError del core a errores de la API (`ErrorApi`); el core no
 conoce HTTP.
 """
+import math
 from datetime import datetime, timezone
 
 from app import repository
@@ -30,7 +31,10 @@ def _ensayo_o_404(con, test_id: int) -> dict:
 
 
 def _contenido(con, test_id: int) -> bytes:
-    return repository.obtener_archivo(con, test_id)[1]
+    archivo = repository.obtener_archivo(con, test_id)
+    if archivo is None:
+        raise ErrorApi(404, "TEST_NOT_FOUND", f"El ensayo {test_id} no existe")
+    return archivo[1]
 
 
 def _parametros_de(resultado: dict) -> ParametrosProcesamiento:
@@ -56,8 +60,12 @@ def _calcular(contenido: bytes, thickness_mm: float, parametros: ParametrosProce
     """Corre el análisis y arma el resultado plano para el repositorio. No escribe nada."""
     try:
         r = analizar(contenido, thickness_mm, parametros)
-    except ValueError as error:
+    except (ValueError, ArithmeticError) as error:
         raise ErrorApi(422, "PROCESSING_FAILED", str(error)) from error
+    # Un resultado con inf/nan no se puede guardar ni serializar a JSON.
+    valores = [r.pm_n, r.dm_mm, r.rm_mpa, r.py_t10_n, r.py_t10_displacement_mm, r.sigma_y_t10_mpa]
+    if not all(v is None or math.isfinite(v) for v in valores):
+        raise ErrorApi(422, "PROCESSING_FAILED", "El cálculo dio un resultado no finito; revisá el espesor y los parámetros")
     return {
         **_parametros_contrato(parametros),
         "pm_n": r.pm_n,
@@ -128,8 +136,10 @@ def curva(con, test_id: int, source: str) -> dict:
 
 
 def archivo(con, test_id: int) -> tuple[str, bytes]:
-    _ensayo_o_404(con, test_id)
-    return repository.obtener_archivo(con, test_id)
+    archivo = repository.obtener_archivo(con, test_id)
+    if archivo is None:
+        raise ErrorApi(404, "TEST_NOT_FOUND", f"El ensayo {test_id} no existe")
+    return archivo
 
 
 def borrar(con, test_id: int) -> None:

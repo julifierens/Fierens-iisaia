@@ -124,3 +124,28 @@ def test_borrar(con, ensayo):
     service.borrar(con, ensayo["id"])
     with pytest.raises(service.ErrorApi):
         service.obtener(con, ensayo["id"])
+
+
+def test_corregir_espesor_con_zerodivision_422_y_no_cambia_nada(con, ensayo, monkeypatch):
+    service.procesar(con, ensayo["id"], ParametrosProcesamiento())
+    antes = service.obtener(con, ensayo["id"])
+
+    def falla(*args, **kwargs):
+        raise ZeroDivisionError("división por cero simulada")
+
+    monkeypatch.setattr(service, "analizar", falla)
+    with pytest.raises(service.ErrorApi) as excinfo:
+        service.corregir_espesor(con, ensayo["id"], 0.25)
+    assert _error(excinfo) == (422, "PROCESSING_FAILED")
+    assert service.obtener(con, ensayo["id"]) == antes
+
+
+def test_contenido_sin_archivo_404(con, ensayo, monkeypatch):
+    # Simula el borrado del ensayo entre la lectura de la ficha y la del archivo.
+    monkeypatch.setattr(repository, "obtener_archivo", lambda con, test_id: None)
+    with pytest.raises(service.ErrorApi) as excinfo:
+        service.curva(con, ensayo["id"], "raw")
+    assert _error(excinfo) == (404, "TEST_NOT_FOUND")
+    with pytest.raises(service.ErrorApi) as excinfo:
+        service.archivo(con, ensayo["id"])
+    assert _error(excinfo) == (404, "TEST_NOT_FOUND")
