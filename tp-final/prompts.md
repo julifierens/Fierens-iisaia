@@ -8,6 +8,11 @@ en varias sesiones; cada entrada indica a cuál pertenece.
 Los "Qué buscaba" de las entradas 1 a 3 los redactó el modelo a pedido mío (prompt
 4), a partir de los objetivos que habíamos acordado en la conversación, y los revisé.
 
+Las entradas 6 a 15 se registraron en la etapa 5 y no en el momento, como acordamos
+en el prompt 9. Un subagente copió los prompts de los transcripts de cada sesión y
+resumió lo que hizo el modelo; los textos se verificaron por muestreo contra los
+transcripts.
+
 ---
 
 ## 1 — Prompt inicial: análisis del material y plan por etapas
@@ -222,3 +227,334 @@ verificación en el navegador hecha por la sesión principal y una revisión de 
 al cerrar cada etapa. También dejó escrita la autorización de commits por tarea,
 sin push, PR ni merge. Commiteó el cierre de la etapa 1 y, sin hacer push, explicó
 cómo crear y fusionar el PR.
+
+---
+
+## 6 — Subir la rama de la spec y el plan
+
+Sesión 1 (12/10/2026).
+
+```
+Subí la rama feature/tp-final-spec a GitHub. No hagas el PR ni el merge todavía. Avisame cuando esté subida.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Hizo el `git push` de `feature/tp-final-spec` (último commit
+`6316594`, cierre de la etapa 1) y dejó la rama local siguiendo a la remota. No
+creó el PR ni hizo merge; pasó el enlace para crearlo desde GitHub, porque `gh` no
+está instalado.
+
+---
+
+## 7 — Etapa 2: motor científico
+
+Sesión 2 (12/10/2026).
+
+```
+Ya fusioné el PR #2 en main. Vamos con la etapa 2 del TP final: implementar SPTERO Core.
+
+Verificá que estemos en tp-final/, que main esté actualizado y que se carguen Superpowers, las skills y el subagente verificador-cientifico. Creá feature/tp-final-core desde main sin afectar TP1 ni TP2.
+
+Ejecutá las tareas 1 a 4 del plan con Superpowers, TDD y subagent-driven. Reutilizá las funciones científicas originales sin modificar las fórmulas.
+
+Antes de implementar, comprobá que tenés acceso local al programa SPTERO original y al ensayo P3_304L_L.raw. Si no los encontrás, pedímelos. Quiero validar los resultados reales, no solamente curvas sintéticas.
+
+Podés trabajar con autonomía y hacer commits por tarea después de verificar los tests. Al terminar, ejecutá el subagente verificador-cientifico y mostrame los resultados.
+
+Detenete antes del push, PR o merge. No avances a la etapa 3.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Con `subagent-driven-development`, encontró el script original y
+el `.raw` en rutas locales y comprobó la regla `deny` sobre `TP1/` intentando editar
+`../TP1/README.md` (la herramienta lo rechazó). Creó `feature/tp-final-core` e hizo
+un commit por tarea: `f49e66c` (lectura del `.raw`), `2d0f7c2` (preprocesado y
+cálculos), `c7158d3` (pipeline `analizar`) y `bf8388d` (caracterización contra el
+original). Suite: 39 passed con los archivos reales; sin ellos, 25 passed y 14
+skipped. El verificador científico dio "fiel".
+
+La revisión final encontró que un `.raw` dañado hacía salir `csv.Error` del core, y
+el verificador, que el docstring de `analisis.py` decía que todos los valores por
+defecto eran los del original cuando `aplicar_correccion=False` no lo es. Dejó las
+dos para que decidiera yo. Desvíos que informó: dejó un `cat` sin entrada que colgó
+un comando hasta cortarlo, y sumó `encontrar_inicio_tabla` a la comparación por AST
+sin consultar (14 tests en vez de 13). Los commits llevan el `Co-Authored-By` de
+Haiku 5.5 (tareas 1 a 3) y Sonnet 5.5 (tarea 4), los modelos de los subagentes.
+
+---
+
+## 8 — Cerrar las dos decisiones de la etapa 2
+
+Sesión 2 (12/10/2026).
+
+```
+Muy bien, cerramos las dos decisiones pendientes:
+
+1. Capturá csv.Error en sptero_core y convertílo en ValueError, con un test para archivos corruptos. No modifiques los algoritmos científicos.
+2. Mantené aplicar_correccion=False por defecto, como en el TP2. Corregí el docstring y documentá la diferencia respecto del programa original.
+
+Conservá el test adicional por AST y las firmas originales de los commits.
+También quiero que los hallazgos importantes del ledger que quedaron pendientes estén documentados en archivos versionados, para no perderlos.
+Después ejecutá nuevamente toda la suite con el .raw real y el programa original, y pasá el verificador-cientifico. Registrá los cambios y hacé el commit correspondiente.
+Si está todo bien, dejá la etapa 2 lista para el PR. No avances a la etapa 3 ni hagas push todavía.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Escribió `test_archivo_corrupto`, lo vio fallar con `_csv.Error`
+y después hizo que `leer_raw` lance `ValueError`. Corrigió el docstring, creó
+`docs/pendientes.md` con los hallazgos del ledger y actualizó el README. Suite: 40
+passed con los archivos reales; sin ellos, 26 passed y 14 skipped. Verificador:
+"fiel". Todo fue en un commit, `9ee4acb`. Se equivocó y lo corrigió antes del
+commit: en el README me había atribuido un motivo que no di (que C_P depende de la
+máquina) y lo sacó. El verificador marcó que la spec §4 no mencionaba la diferencia
+del default; no la tocó y me consultó.
+
+---
+
+## 9 — Cerrar la etapa 2 y subir la rama
+
+Sesión 2 (12/10/2026).
+
+```
+Perfecto, cerramos la etapa 2.
+
+Actualizá la sección 4 de la spec para aclarar que aplicar_correccion=False es el valor por defecto de la web, a diferencia del programa original. Hacé ese cambio en un commit independiente.
+
+Después subí feature/tp-final-core a GitHub. No hace falta otra revisión completa porque los tests ya pasaron y el verificador científico confirmó los resultados.
+
+El registro de prompts lo terminamos de completar en la etapa de documentación final.
+
+No hagas el merge ni empieces la etapa 3. Pasame el enlace para crear el PR.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Editó la spec §4 en un commit propio (`aa7d568`), subió la rama y pasó
+el enlace del PR. Informó que la rama tenía 7 commits sobre `main`, pero eran 6
+(de `f49e66c` a `aa7d568`); el error lo encontró la revisión final de la etapa 5. En ese mismo commit tachó el punto
+correspondiente de `docs/pendientes.md`, algo que no le pedí; lo avisó y ofreció
+sacarlo.
+
+---
+
+## 10 — Etapa 3: API con FastAPI y SQLite
+
+Sesión 3 (12/10/2026).
+
+```
+Ya fusioné el PR de la etapa 2 en main. Vamos con la etapa 3 del TP final: FastAPI + SQLite.
+
+Primero verificá que estamos en tp-final/, que el repositorio está limpio, actualizá main desde origin/main y creá la rama feature/tp-final-api. Comprobá que se carguen las skills y la configuración del agente.
+
+Ejecutá completas las tareas 5 a 8 del plan usando Superpowers, TDD y subagent-driven. Seguí la spec y el contrato OpenAPI v1.1, incluyendo los cambios aprobados.
+
+Quiero que quede funcionando toda la API con persistencia real en SQLite: carga y conservación del .raw original, procesamiento mediante sptero_core, resultados, curvas, historial, reprocesamiento y corrección del espesor.
+
+Prestá especial atención a la atomicidad del PATCH de espesor, la idempotencia de PUT, el manejo de errores y la correspondencia entre FastAPI y OpenAPI.
+
+Tenés autonomía para implementar, corregir errores, ejecutar tests, utilizar subagentes y hacer commits por tarea después de verificarla. No me consultes detalles menores ni me pidas aprobación entre tareas.
+
+Al terminar, ejecutá la suite completa, verificá la integración con el motor científico y realizá una revisión global de la etapa.
+
+Documentá los problemas y decisiones importantes. Mostrame los resultados reales de los tests y dejá la rama lista para PR.
+
+No hagas push, PR ni merge. No avances a la etapa 4.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** No arrancó. Revisó el estado sin cambiar nada y pidió que
+confirmara: el pedido le había llegado entero como texto pegado y le daba una
+autonomía que cambiaba la regla del `CLAUDE.md` de proponer antes de tocar
+archivos. También avisó que el `main` local estaba atrasado (faltaba el merge del
+PR #3).
+
+---
+
+## 11 — Confirmar la autonomía de la etapa 3
+
+Sesión 3 (12/10/2026).
+
+```
+Sí, confirmo. Tenés autorización para ejecutar completa la etapa 3 (Tasks 5 a 8) con la autonomía acordada.
+
+Actualizá main mediante fast-forward, creá feature/tp-final-api y trabajá con Superpowers, TDD y subagent-driven.
+
+Podés implementar, corregir errores, ejecutar tests y hacer un commit por tarea verificada, sin consultarme entre tareas. Frená solamente si aparece una decisión importante que cambie el alcance o la arquitectura.
+
+Al terminar, ejecutá la suite completa, el verificador científico y la revisión final. Documentá los hallazgos relevantes.
+
+No hagas push, PR ni merge, y no avances a la etapa 4.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Commits `c1c683f` (contrato v1.1), `454efcf` (repositorio),
+`13c2716` (servicio), `4acb45f` (rutas), `60bf039` (ids fuera de int64 y test de
+contrato reforzado), `ae29dbb` (correcciones de la revisión final) y `5935508`
+(documentación). Suite: 121 passed, con un aviso de deprecación de httpx. El
+verificador comparó cuatro casos contra el original con diferencia relativa 0, y
+además probó la app con uvicorn y `curl`. Las revisiones encontraron entradas que
+terminaban en 500 (ids fuera de int64, espesor 1e-170, nombres con "€"), mensajes de
+validación en inglés y `{"thickness_mm": true}` guardado como 1 mm; cada una se
+corrigió con su test. Informó 17 decisiones que tomó por mí, entre ellas editar la
+descripción del `PATCH` en el contrato y traducir los mensajes de validación porque
+el plan contradecía su propia restricción. Sobre la carrera entre `PATCH` y `PUT`
+reconoció un error propio: al principio la dio por aceptable creyendo que solo podía
+dar un 500, y después vio que se podía perder una actualización sin aviso. Dejó esa
+decisión para mí.
+
+---
+
+## 12 — Resolver la concurrencia y cerrar la etapa 3
+
+Sesión 3 (12/10/2026).
+
+```
+Muy bien, aprobamos las decisiones de la etapa 3.
+
+Antes del PR quiero resolver la concurrencia entre PATCH y PUT usando transacciones SQLite con BEGIN IMMEDIATE. Asegurate de que ambas operaciones trabajen con datos consistentes y que, si falla el cálculo, se haga rollback sin alterar espesor ni resultados. Agregá tests que reproduzcan la concurrencia.
+
+El resto de las decisiones quedan aprobadas. No hace falta corregir ahora el warning de httpx ni ampliar funcionalidades fuera del MVP.
+
+Validá también openapi.yaml y registrá en la documentación los cambios importantes.
+
+Después ejecutá la suite completa y dejá la etapa lista para el PR. Hacé los commits necesarios, subí la rama a GitHub y pasame el enlace para crear el PR.
+
+No hagas el merge ni avances a la etapa 4.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Commits `a808ac0` (`PATCH` y `PUT` serializados con
+`BEGIN IMMEDIATE`, más `tests/test_concurrencia.py`), `ac456fe` (no dejar
+transacciones abiertas si falla el `COMMIT` o el `ROLLBACK`, pedido por la revisión)
+y `bb16cf4` (documentación). Los tests nuevos se corrieron contra el código anterior
+y fallaron como debían. Validó `openapi.yaml` con `openapi-spec-validator` 0.9.0
+(OpenAPI 3.1.0 válido) y, como contraprueba, rompió un `$ref` a propósito y el
+validador lo detectó. Suite: 130 passed. Subió la rama y pasó el enlace. Errores en
+el camino: la primera versión del test de concurrencia tiró abajo Python con un
+"access violation" por cerrar conexiones con hilos vivos, y la instalación del
+validador falló por el límite de longitud de rutas de Windows.
+
+---
+
+## 13 — Etapa 4: interfaz
+
+Sesión 4 (12/10/2026).
+
+```
+Ya fusioné la etapa 3 en main. Vamos con la etapa 4: desarrollar la interfaz de SPTERO Web.
+
+Primero verificá que estamos en tp-final/, actualizá main desde origin/main y creá feature/tp-final-ui.
+
+Ejecutá las tareas 9 a 12 del plan usando Superpowers, TDD y subagent-driven, con autonomía para implementar, revisar y corregir sin consultarme entre tareas.
+
+Quiero una web funcional, respetando el mockup y conectada con la API existente. Debe permitir cargar archivos .raw, procesarlos, visualizar las curvas con Plotly.js (zoom, pan y valores interactivos), mostrar resultados, consultar el historial, reabrir ensayos, modificar parámetros y reprocesarlos.
+
+También quiero poder seleccionar dos ensayos y superponer sus curvas, eligiendo entre ambas crudas o ambas procesadas, con leyenda y colores distintos.
+
+Respetá las decisiones de la spec: persistencia automática, corrección de espesor, manejo de errores y sin crear versiones adicionales de un mismo ensayo.
+
+No quiero datos simulados ni resultados hardcodeados en la aplicación. La interfaz debe utilizar los resultados reales del backend.
+
+Al terminar, levantá la aplicación y probá el recorrido completo en el navegador, preferentemente con P3_304L_L.raw. Si no podés usar el navegador automáticamente, avisame para hacer la verificación manual.
+
+Tenés autorización para realizar commits por tarea verificada. Documentá los problemas y decisiones relevantes.
+
+Priorizá una aplicación funcional de punta a punta. No agregues funcionalidades fuera del MVP.
+
+Detenete antes del push, PR o merge. No avances a la etapa 5.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Commits `48b2523` (página de análisis), `c990742` (historial),
+`1f1f394` (comparación), `75de2f3` (capturas), `aa2c6e3` (correcciones de la
+revisión final: gráfico de comparación desactualizado, aviso viejo al abrir un
+ensayo y parámetros heredados) y `3e2155b` (pendientes). Probó el recorrido en el
+navegador integrado con `P3_304L_L.raw` y `508-1.raw`, con valores iguales a la
+spec. Suite final: 131 passed. No pudo probar el selector de archivos nativo (armó
+el archivo con sus bytes desde el navegador) ni ver el diálogo real de `confirm()`
+(lo reemplazó desde la automatización). Errores propios que informó: un clic por
+coordenadas cayó fuera de "Nuevo análisis" porque la página se había desplazado, y
+después de navegar a `#comparacion` usó una referencia de antes de recargar, así que
+"Comparar" pareció no andar; en los dos casos lo diagnosticó antes de tocar código.
+Informó 7 decisiones que tomó por mí, entre ellas borrar `data/sptero.db` en lugar
+de usar `SPTERO_DB` y tomar el HTML/CSS del plan como el mockup, porque
+`index_sptero_mockup.html` no está en el repositorio.
+
+---
+
+## 14 — Aprobar la etapa 4 y subir la rama
+
+Sesión 4 (12/10/2026).
+
+```
+Doy por aprobada la etapa 4. La interfaz está como quiero y no necesitamos más modificaciones.
+
+Dejá documentados los pendientes menores para futuras versiones, sin seguir ampliando el MVP.
+
+Subí feature/tp-final-ui a GitHub y pasame el enlace para crear el PR hacia main. No hagas el merge ni avances todavía a la etapa 5.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Respondió que los pendientes ya estaban en `docs/pendientes.md`
+(commit `3e2155b`), así que no hizo otro commit. Subió la rama (6 commits) y pasó el
+enlace del PR. No hizo merge.
+
+---
+
+## 15 — Etapa 5: verificación final y entrega
+
+Sesión 5 (12/10/2026).
+
+```
+Ya fusioné la etapa 4 en main. Vamos con la etapa 5, la última del TP final de IISAIA.
+Primero verificá el estado del repositorio, actualizá main desde origin/main y creá la rama feature/tp-final-entrega.
+Ejecutá la Task 13 del plan usando Superpowers y los subagentes que correspondan. Tenés autonomía para completar la etapa sin consultarme por detalles menores.
+El objetivo es dejar SPTERO Web listo para entregar y reproducir. Priorizá:
+
+1. Verificar el funcionamiento completo desde una instalación limpia: dependencias, FastAPI, SQLite, frontend y pruebas.
+2. Completar el README con instrucciones claras para instalar, ejecutar, utilizar y probar la aplicación, incluyendo Windows.
+3. Revisar el cumplimiento del enunciado de IISAIA y documentar cómo se utilizaron Claude Code, skills, subagentes, TDD y GitHub.
+4. Revisar prompts.md y proponer los registros que falten usando únicamente prompts reales. No inventes intervenciones ni motivaciones mías.
+5. Ejecutar la suite completa y verificar nuevamente los resultados científicos con los archivos originales disponibles.
+6. Comprobar que GitHub no incluya archivos .raw experimentales, bases SQLite, datos privados ni archivos temporales.
+7. Revisar los pendientes, diferenciando limitaciones conocidas del MVP de problemas que impidan la entrega.
+
+No agregues funcionalidades ni hagas cambios innecesarios en los algoritmos científicos o en la interfaz, que ya están aprobados.
+Si aparece un error importante que impida instalar, ejecutar o utilizar la aplicación, corregilo y verificá la solución.
+Documentá los resultados reales de las pruebas, las limitaciones y los problemas encontrados. Hacé los commits necesarios y una revisión final.
+Al terminar quiero un informe breve: qué quedó listo, qué falta completar por mi parte, cómo ejecutar la aplicación y si considerás que cumple los requisitos de entrega.
+No hagas push, PR ni merge hasta que revisemos el resultado.
+```
+
+**Qué buscaba:** _(completa Julián)_
+
+**Qué devolvió:** Trabajó inline con `executing-plans`, retomando el ledger de
+las etapas anteriores. Actualizó `main` por fast-forward (el local no tenía el merge
+del PR #5) y creó `feature/tp-final-entrega`. Clonó la rama en un directorio vacío,
+creó un entorno nuevo e instaló las dependencias: 117 passed y 14 skipped sin los
+archivos originales, 131 passed con ellos. Levantó la app desde ese clon y recorrió
+la API con `P3_304L_L.raw` y la interfaz en el navegador integrado (abrir,
+recalcular con "0,48", cargar `508-1.raw`, comparar, eliminar), con los valores de
+la spec y sin errores en la consola. El `verificador-cientifico` comparó el core con
+el original en cuatro ensayos reales, sin y con corrección: diferencia relativa 0.
+Revisó que el historial del repositorio no tenga `.raw`, bases ni archivos
+temporales, releyó la consigna en el repositorio de la materia y un subagente
+recuperó de los transcripts los prompts 6 a 15. Completó el README (`4b599c7`),
+clasificó los pendientes y una revisión final con un revisor nuevo encontró cuatro
+problemas importantes en el informe y varias imprecisiones, que corrigió antes del
+último commit. No cambió código.
+
+Errores propios: intentó borrar un directorio temporal con `rm -rf` y la regla
+`deny` lo frenó; el clon en el directorio temporal de la sesión falló por la ruta
+larga de Windows; pidió `/curve?type=processed` en vez de `?source=processed` y lo
+tomó un momento como posible bug; un heredoc para escribir `prompts.md` no llegó a
+ejecutarse; y el primer borrador del README tenía las afirmaciones falsas que marcó
+la revisión (entre ellas, el pie de una captura y la tabla de endpoints).
