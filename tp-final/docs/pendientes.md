@@ -12,6 +12,7 @@ Resueltos antes del PR, para referencia:
   `ValueError` (test `test_archivo_corrupto`).
 - ~~El docstring de `analisis.py` decía que todos los valores por defecto eran los
   del original~~: ahora aclara que `aplicar_correccion = False` no lo es (ver README).
+- ~~La spec §4 no registraba esa diferencia de default~~: agregada.
 
 ### Para la etapa 3 (API)
 
@@ -24,14 +25,6 @@ Resueltos antes del PR, para referencia:
    en los dos casos). La API rechaza t ≤ 0 antes de llamar al core, así que en la
    web no se ve; si se quiere el mensaje correcto igual, es un cambio de una línea
    en `analisis.py`, sin tocar fórmulas.
-
-### Documentación
-
-- **Spec §4, valores por defecto.** Dice que los defaults son los mismos que en el
-  original y nombra C_P, β y F0, pero no registra que `apply_compliance_correction`
-  vale `false` mientras que en la consola Enter aplica la corrección. Hoy la
-  diferencia está en el README y en el docstring de `analisis.py`. Si se agrega a
-  la spec, va en un commit propio.
 
 ### Tests que se podrían reforzar
 
