@@ -187,3 +187,9 @@ def test_archivo_con_nombre_no_ascii(cliente, subir, raw_sintetico):
     assert r.status_code == 200
     assert r.content == raw_sintetico
     assert r.headers["content-disposition"] == "attachment; filename*=utf-8''ensayo_%E2%82%AC%C3%B1.raw"
+
+
+@pytest.mark.parametrize("metodo, cuerpo", [("get", None), ("delete", None), ("patch", {"thickness_mm": 0.4})])
+def test_id_fuera_de_int64(cliente, metodo, cuerpo):
+    r = cliente.request(metodo, "/tests/99999999999999999999", json=cuerpo)
+    assert _codigo(r) == (400, "INVALID_PARAMETERS")

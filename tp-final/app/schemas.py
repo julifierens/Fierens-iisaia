@@ -46,3 +46,8 @@ class Curve(BaseModel):
     source: Literal["raw", "processed"]
     displacement_mm: list[float]
     load_n: list[float]
+
+
+class Error(BaseModel):
+    code: Literal["TEST_NOT_FOUND", "RESULT_NOT_FOUND", "INVALID_FILE", "INVALID_PARAMETERS", "PROCESSING_FAILED"]
+    message: str

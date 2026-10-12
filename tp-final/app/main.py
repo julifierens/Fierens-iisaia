@@ -13,11 +13,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import repository, service
-from app.schemas import Curve, ProcessingRequest, Result, Test, TestUpdate
+from app.schemas import Curve, Error, ProcessingRequest, Result, Test, TestUpdate
 from sptero_core.analisis import ParametrosProcesamiento
 
 RAIZ = Path(__file__).resolve().parent.parent
 RUTA_DB_POR_DEFECTO = RAIZ / "data" / "sptero.db"
+# El contrato declara el id como int64; SQLite no acepta enteros mayores.
+MAX_ID = 2**63 - 1
+
+NO_ENCONTRADO = {404: {"model": Error, "description": "El ensayo no existe (TEST_NOT_FOUND)"}}
+PARAMETROS_INVALIDOS = {400: {"model": Error, "description": "Parámetros inválidos (INVALID_PARAMETERS)"}}
+NO_PROCESABLE = {422: {"model": Error, "description": "No se pudo calcular el resultado (PROCESSING_FAILED)"}}
 
 
 def _content_disposition(nombre: str) -> str:
@@ -40,7 +46,7 @@ def crear_app(ruta_db: str | None = None) -> FastAPI:
             con.close()
 
     Conexion = Annotated[sqlite3.Connection, Depends(conexion)]
-    TestId = Annotated[int, PathParam(ge=1, description="Identificador del ensayo")]
+    TestId = Annotated[int, PathParam(ge=1, le=MAX_ID, description="Identificador del ensayo")]
 
     @app.exception_handler(service.ErrorApi)
     def error_api(_request, error: service.ErrorApi):
@@ -55,7 +61,10 @@ def crear_app(ruta_db: str | None = None) -> FastAPI:
     def listar(con: Conexion):
         return service.listar(con)
 
-    @app.post("/tests", status_code=201, response_model=Test, tags=["Ensayos"])
+    @app.post(
+        "/tests", status_code=201, response_model=Test, tags=["Ensayos"],
+        responses={400: {"model": Error, "description": "Parámetros inválidos o archivo inválido (INVALID_PARAMETERS, INVALID_FILE)"}},
+    )
     def subir(
         con: Conexion,
         response: Response,
@@ -67,20 +76,20 @@ def crear_app(ruta_db: str | None = None) -> FastAPI:
         response.headers["Location"] = f"/tests/{ensayo['id']}"
         return ensayo
 
-    @app.get("/tests/{testId}", response_model=Test, tags=["Ensayos"])
+    @app.get("/tests/{testId}", response_model=Test, tags=["Ensayos"], responses=NO_ENCONTRADO)
     def obtener(con: Conexion, testId: TestId):
         return service.obtener(con, testId)
 
-    @app.patch("/tests/{testId}", response_model=Test, tags=["Ensayos"])
+    @app.patch("/tests/{testId}", response_model=Test, tags=["Ensayos"], responses=NO_ENCONTRADO | PARAMETROS_INVALIDOS | NO_PROCESABLE)
     def corregir_espesor(con: Conexion, testId: TestId, cuerpo: TestUpdate):
         return service.corregir_espesor(con, testId, cuerpo.thickness_mm)
 
-    @app.delete("/tests/{testId}", status_code=204, tags=["Ensayos"])
+    @app.delete("/tests/{testId}", status_code=204, tags=["Ensayos"], responses=NO_ENCONTRADO)
     def borrar(con: Conexion, testId: TestId):
         service.borrar(con, testId)
         return Response(status_code=204)
 
-    @app.get("/tests/{testId}/file", tags=["Ensayos"], response_class=Response)
+    @app.get("/tests/{testId}/file", tags=["Ensayos"], response_class=Response, responses=NO_ENCONTRADO)
     def archivo(con: Conexion, testId: TestId):
         nombre, contenido = service.archivo(con, testId)
         return Response(
@@ -89,15 +98,21 @@ def crear_app(ruta_db: str | None = None) -> FastAPI:
             headers={"Content-Disposition": _content_disposition(nombre)},
         )
 
-    @app.get("/tests/{testId}/curve", response_model=Curve, tags=["Ensayos"])
+    @app.get(
+        "/tests/{testId}/curve", response_model=Curve, tags=["Ensayos"],
+        responses=NO_ENCONTRADO | PARAMETROS_INVALIDOS,
+    )
     def curva(con: Conexion, testId: TestId, source: Literal["raw", "processed"] = "raw"):
         return service.curva(con, testId, source)
 
-    @app.get("/tests/{testId}/result", response_model=Result, tags=["Resultados"])
+    @app.get("/tests/{testId}/result", response_model=Result, tags=["Resultados"], responses=NO_ENCONTRADO)
     def resultado(con: Conexion, testId: TestId):
         return service.resultado(con, testId)
 
-    @app.put("/tests/{testId}/result", response_model=Result, tags=["Resultados"])
+    @app.put(
+        "/tests/{testId}/result", response_model=Result, tags=["Resultados"],
+        responses=NO_ENCONTRADO | PARAMETROS_INVALIDOS | NO_PROCESABLE,
+    )
     def procesar(con: Conexion, testId: TestId, cuerpo: Annotated[ProcessingRequest | None, Body()] = None):
         cuerpo = cuerpo or ProcessingRequest()
         parametros = ParametrosProcesamiento(

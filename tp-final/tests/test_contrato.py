@@ -2,6 +2,8 @@ from pathlib import Path
 
 import yaml
 
+from app.main import crear_app
+
 CONTRATO = Path(__file__).resolve().parent.parent / "openapi.yaml"
 
 OPERACIONES_ESPERADAS = {
@@ -49,9 +51,7 @@ def test_test_update_solo_espesor():
     assert set(test_update["properties"]) == {"thickness_mm"}
 
 
-from app.main import crear_app
-
-SCHEMAS_COMPARTIDOS = ["Test", "TestUpdate", "ProcessingRequest", "ProcessingParameters", "Result", "Curve"]
+SCHEMAS_COMPARTIDOS = ["Test", "TestUpdate", "ProcessingRequest", "ProcessingParameters", "Result", "Curve", "Error"]
 
 
 def test_la_app_implementa_las_operaciones_del_contrato():
@@ -63,3 +63,36 @@ def test_los_campos_de_la_app_coinciden_con_el_contrato():
     contrato_schemas = cargar_contrato()["components"]["schemas"]
     for nombre in SCHEMAS_COMPARTIDOS:
         assert set(app_schemas[nombre]["properties"]) == set(contrato_schemas[nombre]["properties"]), nombre
+
+
+def test_los_campos_requeridos_coinciden_con_el_contrato():
+    app_schemas = crear_app(":memory:").openapi()["components"]["schemas"]
+    contrato_schemas = cargar_contrato()["components"]["schemas"]
+    for nombre in SCHEMAS_COMPARTIDOS:
+        de_la_app = set(app_schemas[nombre].get("required", []))
+        del_contrato = set(contrato_schemas[nombre].get("required", []))
+        assert de_la_app == del_contrato, f"required de {nombre}"
+
+
+def codigos_por_operacion(spec, es_app=False):
+    """{(ruta, metodo): {codigos de respuesta}}. En la app se ignora el 422 automatico de FastAPI."""
+    resultado = {}
+    for ruta, item in spec["paths"].items():
+        for metodo, operacion in item.items():
+            if metodo not in METODOS_HTTP:
+                continue
+            codigos = set()
+            for codigo, respuesta in operacion["responses"].items():
+                esquema = respuesta.get("content", {}).get("application/json", {}).get("schema", {})
+                if es_app and codigo == "422" and esquema.get("$ref", "").endswith("/HTTPValidationError"):
+                    continue
+                codigos.add(codigo)
+            resultado[(ruta, metodo)] = codigos
+    return resultado
+
+
+def test_las_respuestas_de_cada_operacion_coinciden_con_el_contrato():
+    de_la_app = codigos_por_operacion(crear_app(":memory:").openapi(), es_app=True)
+    del_contrato = codigos_por_operacion(cargar_contrato())
+    for operacion, codigos in del_contrato.items():
+        assert de_la_app[operacion] == codigos, f"codigos de respuesta de {operacion}"
