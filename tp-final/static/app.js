@@ -5,7 +5,8 @@
 
 const PLOTLY_CONFIG = { responsive: true, displaylogo: false };
 const COLORES = ["#187e77", "#b5643e"];
-const estado = { ensayo: null, archivo: null, ensayos: [], seleccion: [] };
+// graficada: lo que muestra hoy el gráfico de comparación (ids, fuente y processed_at de cada uno), o null.
+const estado = { ensayo: null, archivo: null, ensayos: [], seleccion: [], graficada: null };
 const $ = (id) => document.getElementById(id);
 
 async function pedir(metodo, url, cuerpo) {
@@ -347,7 +348,12 @@ async function cargarHistorial() {
     insignia.textContent = ensayo.result ? "Procesado" : "Sin procesar";
     const acciones = document.createElement("span");
     acciones.append(
-      boton("Abrir", "boton-fila", () => { abrirEnsayo(ensayo.id); $("analisis").scrollIntoView({ behavior: "smooth" }); }),
+      boton("Abrir", "boton-fila", () => {
+        mostrarAviso("");
+        restaurarParametros();
+        abrirEnsayo(ensayo.id);
+        $("analisis").scrollIntoView({ behavior: "smooth" });
+      }),
       boton("Eliminar", "boton-fila danger", () => eliminarEnsayo(ensayo)),
     );
 
@@ -368,6 +374,13 @@ async function cargarHistorial() {
   actualizarComparacion();
 }
 
+// Vuelve β, C_P y la corrección a los valores del formulario, para que un ensayo sin
+// resultado no herede los parámetros del anterior.
+function restaurarParametros() {
+  for (const id of ["beta", "cp"]) $(id).value = $(id).defaultValue;
+  $("corregir").checked = $("corregir").defaultChecked;
+}
+
 function ensayosSeleccionados() {
   return estado.seleccion.map((id) => estado.ensayos.find((e) => e.id === id)).filter(Boolean);
 }
@@ -377,7 +390,25 @@ function textoPlano(texto) {
   return String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// El gráfico queda desactualizado si cambió el par elegido o, en curvas procesadas,
+// si alguno se recalculó (cambia processed_at) o perdió el resultado.
+function comparacionDesactualizada() {
+  const g = estado.graficada;
+  if (!g) return false;
+  const mismoPar = estado.seleccion.length === 2 && g.ids.every((id) => estado.seleccion.includes(id));
+  if (!mismoPar) return true;
+  if (g.fuente !== "processed") return false;
+  return g.ids.some((id) => {
+    const ensayo = estado.ensayos.find((e) => e.id === id);
+    return !ensayo || !ensayo.result || ensayo.result.processed_at !== g.procesado[id];
+  });
+}
+
 function actualizarComparacion() {
+  if (comparacionDesactualizada()) {
+    if (typeof Plotly !== "undefined") Plotly.purge("grafico-comparacion");
+    estado.graficada = null;
+  }
   const seleccionados = ensayosSeleccionados();
   const opcionProcesadas = $("tipo-curva").querySelector('option[value="processed"]');
   const todosProcesados = seleccionados.length === 2 && seleccionados.every((e) => e.result);
@@ -411,6 +442,13 @@ async function comparar() {
       hovertemplate: "%{x:.4f} mm<br>%{y:.1f} N<extra>%{fullData.name}</extra>",
     }));
     graficar("grafico-comparacion", trazas);
+    estado.graficada = {
+      ids: seleccionados.map((e) => e.id),
+      fuente,
+      procesado: Object.fromEntries(seleccionados.map((e) => [e.id, e.result ? e.result.processed_at : null])),
+    };
+    // La selección pudo cambiar mientras llegaban las curvas.
+    actualizarComparacion();
   } catch (error) {
     $("ayuda-comparacion").textContent = error.message;
   }
