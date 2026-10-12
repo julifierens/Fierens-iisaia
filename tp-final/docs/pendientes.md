@@ -182,8 +182,8 @@ archivos originales) y el recorrido en el navegador salieron bien.
 
 - **Limitaciones conocidas del MVP** (documentadas en el README): t/10 sin MAO, sin
   corrección por defecto, Plotly por CDN, uso local de un solo usuario y espera del
-  lock de 5 s (etapa 3, punto 7), y los bordes del contrato de la etapa 3 (puntos 2,
-  4 y 7).
+  lock de 5 s (etapa 3, decisión resuelta antes del PR), y los bordes del contrato
+  de la etapa 3 (puntos 2, 4 y 7) más el hallazgo nuevo 5.
 - **Falta probar a mano** (etapa 4, puntos 2 y 3): el selector de archivos nativo y
   el diálogo real de `confirm()`. Es una prueba de un minuto en un navegador común.
 - **Mejoras para otra versión:** el resto (etapa 2, puntos 2 a 6; etapa 3, puntos 3,
@@ -191,15 +191,21 @@ archivos originales) y el recorrido en el navegador salieron bien.
 
 ### Hallazgos nuevos
 
-1. **Codificación del encabezado.** El original abre el `.raw` con la codificación
+1. **Codificación del encabezado** (riesgo ya previsto en la spec §12, confirmado
+   por el verificador). El original abre el `.raw` con la codificación
    del sistema (cp1252 en Windows) y `leer_raw` decodifica como UTF-8 con reemplazo.
    En los cuatro ensayos reales comparados no hay diferencia, porque las columnas
    numéricas son ASCII. Podría haberla con un encabezado no ASCII que afecte la
-   detección de la fila `"Time` o los nombres de columna. Lo señaló el
-   `verificador-cientifico`; no se probó con un archivo así.
+   detección de la fila `"Time` o los nombres de columna. No se probó con un
+   archivo así.
 2. **`GET /favicon.ico` responde 404** en el log del servidor. Es cosmético.
 3. **El plan tiene dos comandos con rutas locales** (la carpeta de ensayos de
    Julián). No exponen datos y ya están en el historial público; se dejan.
 4. **`test_caracterizacion.py` no compara `py_t10_displacement_mm` contra la tabla de
    la spec** (la tabla no lo tiene). Sí lo compara contra el original en
    `test_pipeline_igual_al_original`.
+5. **El 400 por id inválido no está en el contrato de todos los endpoints.** Un
+   `testId` que no es un entero entre 1 y 2^63−1 responde `400 INVALID_PARAMETERS`
+   en todos los endpoints con `{testId}`, pero `openapi.yaml` solo lo declara en
+   `PATCH`, `/curve` y `PUT /result`. Lo encontró la revisión final de la etapa 5.
+   Corregirlo es un cambio de contrato.

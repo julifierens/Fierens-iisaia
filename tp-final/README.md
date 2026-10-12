@@ -20,7 +20,8 @@ Hace falta Python 3.12 (es la versión con la que se probó) y conexión a inter
 porque Plotly.js se carga desde un CDN. Sin internet la API funciona, pero la
 página no puede dibujar los gráficos.
 
-Todos los comandos se corren desde la carpeta `tp-final/`.
+Los comandos arrancan en la raíz del repositorio y entran a `tp-final/`; los
+demás se corren desde ahí.
 
 **Windows (PowerShell):**
 
@@ -45,7 +46,8 @@ llamar al `python` de `.venv` alcanza. La documentación interactiva de FastAPI 
 en `http://localhost:8000/docs`, pero el contrato es [`openapi.yaml`](openapi.yaml)
 (ver "Limitaciones conocidas").
 
-La base se crea sola la primera vez, en `data/sptero.db`. Para empezar de cero
+La base se crea sola con el primer pedido (al abrir la página), en
+`data/sptero.db`. Para empezar de cero
 alcanza con borrar ese archivo con el servidor apagado. Si el puerto 8000 está
 ocupado, se levanta en otro con `--port 8765` y se abre esa dirección.
 
@@ -66,6 +68,8 @@ en bash, anteponiéndolas al comando (`SPTERO_DB=data/prueba.db .venv/bin/python
 .venv\Scripts\python -m pytest
 ```
 
+En Linux o macOS, `.venv/bin/python -m pytest`.
+
 Usan bases temporales y archivos `.raw` sintéticos, así que no tocan
 `data/sptero.db`. Sin `SPTERO_ORIGINAL` y `SPTERO_RAW_SAMPLE` se saltean los 14
 tests que comparan con el script original. Para correrlos:
@@ -74,6 +78,10 @@ tests que comparan con el script original. Para correrlos:
 $env:SPTERO_ORIGINAL = "C:\ruta\a\Programa SPTERO.py"
 $env:SPTERO_RAW_SAMPLE = "C:\ruta\a\P3_304L_L.raw"
 .venv\Scripts\python -m pytest -v
+```
+
+```bash
+SPTERO_ORIGINAL="/ruta/a/Programa SPTERO.py" SPTERO_RAW_SAMPLE=/ruta/a/P3_304L_L.raw .venv/bin/python -m pytest -v
 ```
 
 El script original y los `.raw` experimentales no están en el repositorio (ver
@@ -102,7 +110,7 @@ decisiones).
 
 | Historial | Comparación |
 |---|---|
-| ![Historial](docs/capturas/historial.jpg) | ![Comparación de dos curvas crudas](docs/capturas/comparacion.jpg) |
+| ![Historial](docs/capturas/historial.jpg) | ![Comparación de dos curvas procesadas](docs/capturas/comparacion.jpg) |
 
 ## Qué me propuse construir
 
@@ -181,18 +189,21 @@ tp-final/
 |---|---|---|---|
 | `POST` | `/tests` | Subir un ensayo (multipart: `file`, `material`, `thickness_mm`) | `201` · `400` |
 | `GET` | `/tests` | Historial, del más reciente al más viejo | `200` |
-| `GET` | `/tests/{testId}` | Detalle, con `result` o `null` | `200` · `400` · `404` |
+| `GET` | `/tests/{testId}` | Detalle, con `result` o `null` | `200` · `404` |
 | `PATCH` | `/tests/{testId}` | Corregir el espesor y recalcular | `200` · `400` · `404` · `422` |
-| `DELETE` | `/tests/{testId}` | Borrar ensayo, archivo y resultado | `204` · `400` · `404` |
-| `GET` | `/tests/{testId}/file` | Descargar el `.raw` original | `200` · `400` · `404` |
+| `DELETE` | `/tests/{testId}` | Borrar ensayo, archivo y resultado | `204` · `404` |
+| `GET` | `/tests/{testId}/file` | Descargar el `.raw` original | `200` · `404` |
 | `GET` | `/tests/{testId}/curve?source=raw\|processed` | Curva cruda o procesada | `200` · `400` · `404` |
 | `PUT` | `/tests/{testId}/result` | Procesar o reprocesar (idempotente) | `200` · `400` · `404` · `422` |
-| `GET` | `/tests/{testId}/result` | Consultar el resultado | `200` · `400` · `404` |
+| `GET` | `/tests/{testId}/result` | Consultar el resultado | `200` · `404` |
 
-Los errores siempre tienen la forma `{"code": ..., "message": ...}`, con el mensaje
+Los códigos son los que declara `openapi.yaml`. Los errores de la API tienen la
+forma `{"code": ..., "message": ...}`, con el mensaje
 en español: `400 INVALID_FILE` o `INVALID_PARAMETERS`, `404 TEST_NOT_FOUND` o
-`RESULT_NOT_FOUND`, `422 PROCESSING_FAILED`. Los `400` de los endpoints con
-`{testId}` son por un id que no es un entero entre 1 y 2^63−1.
+`RESULT_NOT_FOUND`, `422 PROCESSING_FAILED`. Además, cualquier endpoint con
+`{testId}` responde `400 INVALID_PARAMETERS` si el id no es un entero entre 1 y
+2^63−1, aunque el contrato solo lo declare en `PATCH`, `/curve` y `PUT` (ver
+"Limitaciones conocidas").
 
 ### Datos
 
@@ -238,8 +249,9 @@ PUT /tests/1/result
 
 ## Fragmentos clave del código
 
-**El pipeline (D1)**, en `sptero_core/analisis.py`. Es lo único nuevo del core: el
-resto son copias del original. El cero por precarga se aplica solo dentro de la
+**El pipeline (D1)**, en `sptero_core/analisis.py`. Junto con los cambios de
+entrada/salida de `leer_raw`, es lo único nuevo del core: el resto son copias del
+original. El cero por precarga se aplica solo dentro de la
 rama con corrección, como en el script, y t/10 usa la rama sin MAO.
 
 ```python
@@ -301,6 +313,19 @@ def transaccion(con):
         raise
 ```
 
+`actualizar_espesor` escribe el espesor y el resultado nuevo con el mismo
+`transaccion`, que al estar anidado no confirma por su cuenta: confirma la
+transacción de afuera, la de `corregir_espesor`.
+
+```python
+def actualizar_espesor(con, test_id: int, thickness_mm: float, resultado: dict | None) -> None:
+    """Cambia el espesor y, si se pasa, reemplaza el resultado en la misma transacción."""
+    with transaccion(con):
+        con.execute("UPDATE tests SET thickness_mm = ? WHERE id = ?", (thickness_mm, test_id))
+        if resultado is not None:
+            _upsert_resultado(con, test_id, resultado)
+```
+
 **La validación responde 400, no 422**, en `app/main.py`. FastAPI contesta 422 con
 su propio formato ante una entrada inválida; el contrato pide `400
 INVALID_PARAMETERS` con el formato `Error` y el mensaje en español.
@@ -311,6 +336,26 @@ def error_validacion(_request, error: RequestValidationError):
     detalle = "; ".join(_mensaje_validacion(e) for e in error.errors())
     return JSONResponse(status_code=400, content={"code": "INVALID_PARAMETERS", "message": f"Parámetros inválidos: {detalle}"})
 ```
+
+## Observaciones arquitectónicas
+
+- **Un solo proceso sirve la API y la interfaz.** No hay CORS ni paso de build, y la
+  app se levanta con un comando. El costo es que la interfaz depende del CDN de
+  Plotly.
+- **El `.raw` original vive en la base como BLOB.** Cada resultado se puede
+  reproducir desde su fuente, y la curva procesada no se guarda: se recalcula al
+  pedirla, con los parámetros guardados. Para un laboratorio con cientos de ensayos
+  de decenas de KB alcanza; con archivos mucho más grandes convendría guardarlos
+  aparte.
+- **La consistencia la da SQLite, no la interfaz.** `PATCH` y `PUT` leen, calculan y
+  escriben dentro de `BEGIN IMMEDIATE`, así que dos pedidos sobre el mismo ensayo se
+  serializan aunque la interfaz los mande seguidos.
+- **El core está aislado del framework.** Como no importa nada de `app/`, se puede
+  comparar función por función con el script original y reutilizar en otra
+  interfaz (por ejemplo, procesamiento en lote) sin tocarlo.
+- **Lo que quedaría por ordenar si el proyecto crece:** el esquema se crea en cada
+  conexión (podría hacerse una vez al arrancar), las rutas son síncronas, y
+  `app.js` concentra toda la interfaz en un archivo de 475 líneas.
 
 ## Decisiones que tomé yo
 
@@ -370,6 +415,12 @@ necesitan leen rutas locales y se saltean si no están. Por qué: por ahora pref
 no publicar esos archivos. La trazabilidad científica se conserva igual: los
 valores de referencia quedan fijados en la spec y la comparación con el original
 se puede repetir localmente.
+
+**Guardar el desplazamiento de Py t/10 (`py_t10_displacement_mm`).** Lo propuso
+el agente al escribir el plan: para marcar Py t/10 sobre la curva hacía falta su
+desplazamiento, y la spec no lo tenía. Lo aprobé al revisar el plan (prompt 5), como
+campo del `Result` v1.1 que vale `null` si no se encuentra el cruce. Es el `x_py`
+que ya devuelve `estimar_py_t10` en el original, así que no suma ningún cálculo.
 
 ### Decisiones de la etapa 2 (motor científico)
 
@@ -505,6 +556,12 @@ caracteres de Windows ("Filename too long"), así que se usó `%TEMP%\spl`.
 ejecutar o usar la aplicación, así que esta etapa solo toca documentación. Los
 hallazgos nuevos quedaron en `docs/pendientes.md`.
 
+**No se publican los resultados de ensayos nuevos.** Para la verificación
+científica se usaron cuatro ensayos reales. En la tabla de "Validación" quedan P3
+(que ya está en la spec) y 508-1 (que ya se ve en la captura de la etapa 4); de
+P10_304L_L y P11_304L_L solo se informa que la diferencia con el original fue 0.
+Publicar sus valores queda para que lo decida yo.
+
 **Las rutas locales que aparecen en el plan no se borran.** El plan tiene dos
 comandos con la ruta de mi carpeta de ensayos. No exponen datos (los `.raw` no están
 en el repositorio) y ya están en el historial público, así que borrarlas de la
@@ -512,7 +569,8 @@ en el repositorio) y ya están en el historial público, así que borrarlas de l
 
 ## Cómo gestioné el contexto
 
-El proyecto se hizo en cinco sesiones de Claude Code (una por etapa), así que nada
+El proyecto se hizo en cinco sesiones de Claude Code (la primera cubrió las etapas
+0 y 1, y después una por etapa), así que nada
 importante podía depender de la memoria de una conversación. Lo que sostuvo el
 contexto entre sesiones:
 
@@ -538,13 +596,14 @@ contexto entre sesiones:
   documentación de Claude Code. Desde la etapa 2, `subagent-driven-development`: un
   subagente implementaba cada tarea y otro la revisaba. El subagente propio
   `verificador-cientifico` (solo lectura) compara el core con el script original, así
-  que la sesión principal nunca cargó las 1.500 líneas del script. En la etapa 5, un
-  subagente leyó los transcripts de las sesiones anteriores para recuperar los
+  que desde la etapa 2 la sesión principal no tuvo que cargar las 1.500 líneas del
+  script. En la etapa 5, un subagente leyó los transcripts de las sesiones
+  anteriores para recuperar los
   prompts textuales.
 - **Skill propia `registrar-prompt`.** Agrega una entrada a `prompts.md` con el
   formato del repositorio y deja "Qué buscaba" para mí. Se invoca solo a mano
   (`disable-model-invocation`), porque qué prompt es relevante lo decido yo.
-- **Un ledger de progreso** (`.superpowers/`, fuera del repositorio) donde el agente
+- **Un ledger de progreso** (`.superpowers/`, no versionado) donde el agente
   anotaba cada tarea terminada, cada decisión que tomaba y cada hallazgo diferido.
   Los hallazgos que importaban pasaron a `docs/pendientes.md`, que sí se versiona.
 - **MCP: el navegador integrado de la app de escritorio.** No hay Node instalado, así
@@ -603,6 +662,30 @@ Los commits llevan el `Co-Authored-By` del modelo que los escribió.
   `apellido-iisaia/tp-final`) para revisar el informe contra lo que se pide.
 
 ## Qué salió mal y cómo lo corregí
+
+**Etapas 0 y 1 (spec y plan).**
+- **Permisos que no protegían nada.** El primer `settings.json` tenía reglas
+  `Write(...)` con ruta, que Claude Code nunca aplica, y `Edit(../TP1/**)`, que no
+  sale de su ancla. Lo encontró el agente al revisar la documentación oficial cuando
+  le pedí revisar esas reglas (prompt 3), y las reemplazó por `Edit(//**/TP1/**)` y
+  `Edit(//**/TP2/**)`.
+- **Una skill que fallaba desde `tp-final/`.** `registrar-prompt` tenía fija la ruta
+  `tp-final/prompts.md`. Se reescribió para ubicar el archivo al lado de su
+  `.claude/`.
+- **Una prueba que falló por cómo se ejecutó.** En el análisis inicial, el agente
+  corrió Python con `-I`, que ignora `PYTHONIOENCODING`, y el `print` con emojis del
+  original falló en la consola cp1252. Lo repitió con `-X utf8`.
+- **Lo que el plan no había visto.** Al escribir la spec apareció que el original
+  calcula t/10 con la Zona I de MAO cuando existe; como MAO quedó afuera, la web
+  usa la rama sin MAO y se documentó como diferencia conocida. Al escribir el plan
+  faltaba el desplazamiento de Py para marcarlo en el gráfico (ver decisiones).
+- **Una curva sintética mal armada en el plan.** Aplicaba un piso de 100 N a toda la
+  curva y no solo a la caída, lo que corría el cruce de t/10 y anulaba el cero por
+  precarga. El agente lo encontró al verificar los valores esperados contra el
+  original, antes de implementar, y lo corrigió.
+- **Rutas largas en Windows.** Python no pudo abrir un archivo en el directorio
+  temporal de la sesión porque la ruta pasaba los 260 caracteres. Se repitió con una
+  ruta corta (y volvió a pasar en las etapas 3 y 5).
 
 **Etapa 2.**
 - **Un comando colgado.** El agente principal dejó un `cat` sin entrada al armar
@@ -670,13 +753,24 @@ Los commits llevan el `Co-Authored-By` del modelo que los escribió.
   parseo). Comprobó que el archivo no había cambiado y lo hizo con la herramienta de
   edición.
 
+- **El primer borrador del informe tenía errores que encontró la revisión final.**
+  Un revisor nuevo (Opus) comparó el README con el código y el plan, y marcó: el
+  pie de la captura de comparación decía "curvas crudas" y son procesadas; la tabla
+  de endpoints mezclaba lo que declara el contrato con lo que devuelve la API (el
+  400 por id inválido); faltaban la decisión de `py_t10_displacement_mm` y los
+  desvíos de las etapas 0 y 1 que pide el plan; varias frases decían más de lo que
+  se había comprobado (por ejemplo, que la base se crea al levantar uvicorn, cuando
+  se crea con el primer pedido); y la tabla de validación publicaba por primera vez
+  los resultados de dos ensayos más. También encontró que en la etapa 2 el modelo
+  había informado 7 commits cuando eran 6. Se corrigió todo antes del commit final.
+
 ## Validación
 
 **Instalación limpia (12/10/2026).** Se clonó la rama en un directorio vacío, sin
 `.venv` ni `data/`, y se siguieron los pasos de "Cómo se ejecuta" en Windows 11 con
 Python 3.12.10. `pip install -r requirements.txt` terminó sin errores (numpy 2.4.1,
-fastapi 0.143.0, starlette 1.7.0, pydantic 2.14.1, uvicorn 0.54.0). Al levantar
-uvicorn se creó `data/sptero.db` sola.
+fastapi 0.143.0, starlette 1.7.0, pydantic 2.14.1, uvicorn 0.54.0). Con el primer
+pedido al servidor se creó `data/sptero.db` sola.
 
 **Suite sin los archivos originales:**
 
@@ -715,18 +809,17 @@ magnitudes, y las curvas procesadas son iguales elemento a elemento.
 | P3_304L_L | sí | 2372,199 | 1,731921 | 758,810 | 281,845 | 390,074 |
 | 508-1 | no | 1836,074 | 1,816821 | 559,871 | 391,914 | 542,410 |
 | 508-1 | sí | 1836,074 | 1,396135 | 728,572 | 393,194 | 544,180 |
-| P10_304L_L | no | 2485,009 | 2,045945 | 672,890 | 380,686 | 526,870 |
-| P10_304L_L | sí | 2485,009 | 1,481845 | 929,041 | 382,594 | 529,510 |
-| P11_304L_L | no | 2329,106 | 2,100588 | 614,268 | 254,349 | 352,019 |
-| P11_304L_L | sí | 2329,106 | 1,643538 | 785,090 | 259,148 | 358,660 |
 
 Con 508-1 y corrección, el cero por precarga descarta un punto, así que esa parte de
-D1 también quedó probada con datos reales. Para 508-1, P10 y P11 se usó t = 0,5 mm
-en lugar del espesor medido: sirve para comparar core y original, pero esos Rm y σy
+D1 también quedó probada con datos reales. Los otros dos ensayos (P10_304L_L y
+P11_304L_L) también dieron diferencia 0; sus valores no se publican. Para 508-1,
+P10 y P11 se usó t = 0,5 mm en lugar del espesor medido: sirve para comparar core y original, pero esos Rm y σy
 no son los del laboratorio.
 
-**La web contra la spec.** Con `P3_304L_L.raw`, la API del clon limpio y la interfaz
-dieron los valores de la spec (§4):
+**La web contra la spec.** Con `P3_304L_L.raw`, la API del clon limpio dio los
+valores de la spec (§4) en los dos casos, y la interfaz en el caso sin corrección
+(el caso con corrección se vio en la interfaz al abrir el ensayo, procesado antes
+por la API):
 
 | Caso | Pm [N] | dm [mm] | Rm [MPa] | Py t/10 [N] | σy t/10 [MPa] |
 |---|---|---|---|---|---|
@@ -774,7 +867,9 @@ cuenta:
 - **Bordes del contrato:** `/docs` de FastAPI muestra un 422 que la API nunca
   devuelve (el contrato es `openapi.yaml`); los 404 de rutas inexistentes y los 500
   inesperados salen con el formato de Starlette y no con `Error`; los campos
-  desconocidos en el cuerpo se ignoran.
+  desconocidos en el cuerpo se ignoran; y un id que no es un entero válido responde
+  `400 INVALID_PARAMETERS` también en `GET /tests/{id}`, `DELETE`, `/file` y
+  `GET /result`, donde el contrato no declara el 400.
 
 El resto de las observaciones de las revisiones, con su origen y prioridad, está en
 [docs/pendientes.md](docs/pendientes.md).
@@ -782,7 +877,9 @@ El resto de las observaciones de las revisiones, con su origen y prioridad, est�
 ## Prompts
 
 El registro completo, textual y en orden, está en [prompts.md](prompts.md): 15
-entradas en cinco sesiones, una por etapa. Los que marcaron el rumbo:
+entradas en cinco sesiones. Las entradas 6 a 15 se registraron en la etapa 5: un
+subagente las recuperó de los transcripts de cada sesión y se verificaron por
+muestreo contra ellos. Los que marcaron el rumbo:
 
 - **1 — Prompt inicial.** Pedí analizar todo el material (el script, un ensayo, el
   mockup, la presentación y la consigna) y proponer un plan por etapas sin tocar
