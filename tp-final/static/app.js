@@ -368,8 +368,52 @@ async function cargarHistorial() {
   actualizarComparacion();
 }
 
+function ensayosSeleccionados() {
+  return estado.seleccion.map((id) => estado.ensayos.find((e) => e.id === id)).filter(Boolean);
+}
+
+// Plotly interpreta etiquetas en los textos de las trazas: los datos del usuario se escapan.
+function textoPlano(texto) {
+  return String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function actualizarComparacion() {
-  // Se completa en la Task 11.
+  const seleccionados = ensayosSeleccionados();
+  const opcionProcesadas = $("tipo-curva").querySelector('option[value="processed"]');
+  const todosProcesados = seleccionados.length === 2 && seleccionados.every((e) => e.result);
+  opcionProcesadas.disabled = !todosProcesados;
+  if (!todosProcesados && $("tipo-curva").value === "processed") $("tipo-curva").value = "raw";
+  $("boton-comparar").disabled = seleccionados.length !== 2;
+
+  const ayuda = $("ayuda-comparacion");
+  if (seleccionados.length < 2) {
+    ayuda.textContent = `Marcá dos ensayos en el historial (${seleccionados.length} de 2).`;
+  } else if (!todosProcesados) {
+    ayuda.textContent = "Curvas procesadas no disponible: algún ensayo todavía no se procesó.";
+  } else {
+    ayuda.textContent = "Elegí el tipo de curva y compará.";
+  }
+}
+
+async function comparar() {
+  const seleccionados = ensayosSeleccionados();
+  if (seleccionados.length !== 2) return;
+  const fuente = $("tipo-curva").value;
+  const tipo = fuente === "processed" ? "procesada" : "cruda";
+  try {
+    const curvas = await Promise.all(seleccionados.map((e) => pedir("GET", `/tests/${e.id}/curve?source=${fuente}`)));
+    const trazas = curvas.map((curva, i) => ({
+      x: curva.displacement_mm,
+      y: curva.load_n,
+      mode: "lines",
+      name: `${textoPlano(seleccionados[i].filename)} · ${textoPlano(seleccionados[i].material)} · ${tipo}`,
+      line: { color: COLORES[i], width: 2 },
+      hovertemplate: "%{x:.4f} mm<br>%{y:.1f} N<extra>%{fullData.name}</extra>",
+    }));
+    graficar("grafico-comparacion", trazas);
+  } catch (error) {
+    $("ayuda-comparacion").textContent = error.message;
+  }
 }
 
 function iniciar() {
@@ -385,6 +429,8 @@ function iniciar() {
     zona.classList.remove("arrastrando");
     elegirArchivo(e.dataTransfer.files[0]);
   });
+  $("boton-comparar").addEventListener("click", comparar);
+  $("tipo-curva").addEventListener("change", actualizarComparacion);
   cargarHistorial();
 }
 
