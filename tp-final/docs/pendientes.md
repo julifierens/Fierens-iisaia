@@ -116,3 +116,58 @@ punto 7). El análisis original queda abajo como referencia.
     un mensaje menos preciso.
 12. `conectar` crea el esquema en cada pedido. No hace daño; podría hacerse una vez
     al crear la app.
+
+## Etapa 4 — interfaz (revisiones del 12/10/2026)
+
+Resueltos antes del PR, para referencia:
+
+- ~~Un doble clic en **Analizar ensayo** mandaba dos `POST` y dejaba el ensayo
+  duplicado~~: los botones del formulario se deshabilitan mientras hay un pedido
+  en curso.
+- ~~Plotly interpreta etiquetas HTML en el nombre de las trazas~~: el nombre de
+  archivo y el material se escapan antes de pasarlos a la leyenda de la
+  comparación (probado con `<b>dos</b>.raw`).
+- ~~El gráfico de comparación seguía mostrando la curva de un ensayo ya
+  eliminado~~: se limpia cuando la selección deja de ser el par comparado o
+  cuando cambia el resultado de alguno (con curvas procesadas).
+- ~~Al abrir un ensayo desde el historial quedaba el aviso de error del ensayo
+  anterior, y un ensayo sin procesar heredaba β, C_P y la corrección del que
+  estaba abierto~~: "Abrir" limpia el aviso y vuelve esos campos a sus valores por
+  defecto antes de cargar el ensayo.
+
+### Decisiones tomadas por el agente durante la ejecución (revisar)
+
+1. **El mockup (`index_sptero_mockup.html`) no está en el repositorio.** Se tomó
+   el HTML/CSS del plan como la versión ya derivada del mockup.
+2. **Carga del `.raw` real por la interfaz.** El navegador integrado no puede
+   elegir archivos locales. Para que el `POST` lo hiciera la interfaz con el
+   archivo real, se subió una copia por la API, se leyeron sus bytes desde el
+   navegador, se borró la copia y se soltó el archivo sobre la zona de carga. Falta
+   probar a mano el selector de archivos nativo.
+3. **Diálogo de confirmación.** Para aceptar o cancelar `confirm()` desde la
+   automatización se reemplazó la función en la consola. Se comprobó el texto y
+   que cancelar no borra, pero el diálogo nativo no se vio.
+4. **Base limpia de la verificación.** En vez de `SPTERO_DB=data/verificacion.db`
+   (el plan), se borró `data/sptero.db`, que había creado la misma sesión:
+   `launch.json` no pasa variables de entorno.
+5. **Capturas en JPG** (`docs/capturas/*.jpg`), no PNG como dice el plan: es lo
+   que guarda la herramienta de captura. La Task 13 tiene que referenciarlas como
+   `.jpg`.
+
+### Mejoras posibles (no bloquean)
+
+6. El hover del gráfico muestra "0,1234 mm / 456,7 N" sin las etiquetas
+   "Desplazamiento" y "Carga" que nombra la spec §7.
+7. Los errores de `GET /tests` y `GET /curve` aparecen en el aviso de "Datos del
+   ensayo", no en la tarjeta del historial o del gráfico (spec §8).
+8. Eliminar un ensayo desde una fila mientras otro se está guardando vuelve a
+   habilitar **Analizar** antes de tiempo, y eso reabre la posibilidad de un
+   duplicado.
+9. Si falla el `GET` que reabre el ensayo justo después de un `POST` exitoso, el
+   indicador queda en "Guardando…" y otro clic en **Analizar** sube el archivo de
+   nuevo. Si falla `GET /curve`, el gráfico conserva la curva anterior.
+10. "Parámetros usados" muestra los números con punto (`0.5`, `0.0002281`)
+    mientras las tarjetas usan coma.
+11. `test_sirve_la_interfaz` solo comprueba que `/` y `/static/app.js` respondan.
+    No hay tests automáticos del JS (no hay Node); la interfaz se verificó en el
+    navegador.
