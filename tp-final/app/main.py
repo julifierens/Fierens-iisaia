@@ -10,7 +10,8 @@ from typing import Annotated, Literal
 
 from fastapi import Body, Depends, FastAPI, File, Form, Path as PathParam, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import repository, service
 from app.schemas import Curve, Error, ProcessingRequest, Result, Test, TestUpdate
@@ -18,6 +19,7 @@ from sptero_core.analisis import ParametrosProcesamiento
 
 RAIZ = Path(__file__).resolve().parent.parent
 RUTA_DB_POR_DEFECTO = RAIZ / "data" / "sptero.db"
+CARPETA_STATIC = RAIZ / "static"
 # El contrato declara el id como int64; SQLite no acepta enteros mayores.
 MAX_ID = 2**63 - 1
 
@@ -149,6 +151,12 @@ def crear_app(ruta_db: str | None = None) -> FastAPI:
             beta=cuerpo.beta,
         )
         return service.procesar(con, testId, parametros)
+
+    @app.get("/", include_in_schema=False)
+    def inicio():
+        return FileResponse(CARPETA_STATIC / "index.html")
+
+    app.mount("/static", StaticFiles(directory=CARPETA_STATIC), name="static")
 
     return app
 

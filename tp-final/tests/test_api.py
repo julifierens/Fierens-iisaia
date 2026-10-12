@@ -283,3 +283,10 @@ def test_put_correccion_como_texto_es_invalida(cliente, subir):
     test_id = subir().json()["id"]
     r = cliente.put(f"/tests/{test_id}/result", json={"apply_compliance_correction": "true"})
     assert _codigo(r) == (400, "INVALID_PARAMETERS")
+
+
+def test_sirve_la_interfaz(cliente):
+    r = cliente.get("/")
+    assert r.status_code == 200
+    assert "SPTERO" in r.text
+    assert cliente.get("/static/app.js").status_code == 200
