@@ -97,7 +97,7 @@ comparar cada función copiada.
 Esta etapa la ejecutó el agente con autonomía delegada: le pedí que no me
 consultara entre tareas y que frenara solo ante decisiones de alcance o de
 arquitectura. Las decisiones de abajo las tomó el agente al implementar o al
-revisar, y las dejo escritas para revisarlas antes del PR.
+revisar; las revisé antes del PR y las aprobé. La de concurrencia la tomé yo.
 
 **Rechazar números no finitos en todas las entradas.** Pydantic acepta `inf`, y
 el parser JSON de Starlette acepta `Infinity` y `NaN`. Un espesor infinito pasaba
@@ -135,13 +135,33 @@ los campos requeridos y los códigos de estado de cada operación contra
 en latin-1, así que "ensayo_€.raw" daba 500. Se usa `filename*=utf-8''…`, igual
 que `FileResponse`.
 
-**Queda para decidir: pedidos concurrentes sobre el mismo ensayo.** La revisión
-final encontró que un `PUT` que llega mientras corre un `PATCH` puede quedar
-pisado sin aviso. La atomicidad que pide la spec se cumple: si el recálculo falla,
-no cambia nada. Arreglarlo exige elegir entre reorganizar las transacciones del
-repositorio o serializar los pedidos desde la interfaz, y esa elección es mía.
-Está descrita en [docs/pendientes.md](docs/pendientes.md) y la tengo que resolver
-antes de la etapa 4.
+**`PATCH` y `PUT` se serializan con `BEGIN IMMEDIATE` (decisión mía).** La
+revisión final encontró que un `PUT` que llegaba mientras corría un `PATCH` sobre
+el mismo ensayo podía quedar pisado sin aviso, y al revés: un `PUT` en curso podía
+guardar un Rm calculado con el espesor viejo. Las dos operaciones leían, calculaban
+y recién después escribían, con la lectura fuera de la transacción. Elegí
+resolverlo en la base y no en la interfaz:
+- Las conexiones se abren en modo autocommit y las transacciones son explícitas,
+  con `repository.transaccion(con)`. Ese context manager hace `BEGIN IMMEDIATE`,
+  confirma al final y deshace ante cualquier error, también si falla el propio
+  `COMMIT`. Se puede anidar: dentro de una transacción, las escrituras del
+  repositorio no confirman por su cuenta.
+- `procesar` y `corregir_espesor` hacen lectura, cálculo y escritura dentro de
+  una sola transacción. El segundo pedido espera el lock de escritura y, cuando
+  entra, lee lo que dejó el primero.
+- Si el cálculo falla, el `ROLLBACK` deja el espesor y el resultado como estaban.
+
+Los tests de `tests/test_concurrencia.py` reproducen los dos casos con dos
+conexiones y dos hilos, frenando el primer cálculo. Con el código anterior fallan:
+el estado final quedaba con β = 0,277 en vez de 0,4, o con Rm = 576 MPa
+(calculado con t = 0,5) en vez de 1152 MPa. La espera del lock es de 5 s. Si se
+vence, el pedido termina en 500 sin guardar nada; para una app local con un solo
+usuario es aceptable, porque el cálculo dura milisegundos.
+
+**Contrato validado.** `openapi.yaml` se validó con `openapi-spec-validator`
+0.9.0 como OpenAPI 3.1.0, sin errores. La herramienta se instaló en un directorio
+temporal, fuera de las dependencias del proyecto. Como contraprueba, un `$ref`
+roto puesto a propósito sí lo detecta.
 
 Los hallazgos de las revisiones que quedaron para más adelante están en
 [docs/pendientes.md](docs/pendientes.md).
@@ -199,7 +219,14 @@ Los hallazgos de las revisiones que quedaron para más adelante están en
   aceptable la lectura fuera de la transacción en el `PATCH`, pensando que lo
   único que podía pasar era un 500 si se borraba el ensayo en el medio. La
   revisión final mostró que también se puede perder una actualización sin aviso.
-  Se corrigió la descripción y quedó como decisión pendiente.
+  La resolví con `BEGIN IMMEDIATE` antes del PR (ver decisiones).
+- **Un test de concurrencia que tiró abajo el proceso.** La primera versión de
+  `test_concurrencia.py` cerraba las conexiones con los hilos todavía vivos, y
+  Python terminó con "access violation". Ahora los hilos se esperan en un
+  `finally` antes de cualquier assert, y todas las esperas tienen timeout.
+- **La validación del contrato no salió a la primera.** Instalar el validador en
+  un entorno temporal falló por el límite de longitud de rutas de Windows, y hubo
+  que usar un directorio con una ruta más corta.
 - **Un permiso que bloqueó la copia del contrato.** El `cp` desde `../TP2` fue
   denegado. El subagente copió el contrato leyéndolo y escribiéndolo de nuevo, y
   después se comprobó con `diff` que solo cambiaban las ediciones del plan.

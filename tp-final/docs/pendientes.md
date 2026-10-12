@@ -59,9 +59,15 @@ Resueltos antes del PR, para referencia:
 - ~~Un `DELETE` entre dos lecturas del mismo pedido daba 500~~: `archivo()` hace
   una sola consulta.
 
-### Decisión pendiente antes de la etapa 4
+### ~~Decisión pendiente antes de la etapa 4~~ Resuelta antes del PR
 
-1. **Pedidos concurrentes sobre el mismo ensayo.** `PATCH` y `PUT` leen el ensayo,
+Julián eligió la primera opción: `PATCH` y `PUT` se serializan con
+`BEGIN IMMEDIATE` (`repository.transaccion`, tests en
+`tests/test_concurrencia.py`). Si la espera del lock (5 s) se vence, el pedido
+termina en 500 con el formato por defecto de Starlette y sin guardar nada (ver
+punto 7). El análisis original queda abajo como referencia.
+
+1. **Pedidos concurrentes sobre el mismo ensayo (resuelto).** `PATCH` y `PUT` leen el ensayo,
    calculan y después escriben; la lectura queda fuera de la transacción de
    escritura. Si un `PUT` con otros parámetros llega mientras corre un `PATCH`,
    el `PUT` responde 200 con sus parámetros pero lo guardado termina con los del
@@ -89,7 +95,9 @@ Resueltos antes del PR, para referencia:
 5. **Aviso de deprecación en los tests.** Starlette avisa que `TestClient` con
    `httpx` está deprecado y sugiere `httpx2`. Se dejó visible: cambiar la
    dependencia o silenciar el aviso es una decisión aparte.
-6. **Validar `openapi.yaml` en Swagger Editor** (paso manual de la Task 5).
+6. ~~**Validar `openapi.yaml` en Swagger Editor** (paso manual de la Task 5).~~
+   Resuelto: se validó con `openapi-spec-validator` 0.9.0 (OpenAPI 3.1.0, sin
+   errores).
 7. **404 y 405 de rutas que no existen, y 500 inesperados,** salen con el formato
    por defecto de Starlette (`{"detail": ...}`), no con `Error`. Darles formato
    exige códigos nuevos en el enum.
