@@ -284,8 +284,88 @@ function elegirArchivo(archivo) {
   mostrarAviso("");
 }
 
+function celda(contenido) {
+  const td = document.createElement("td");
+  if (contenido instanceof Node) td.append(contenido);
+  else td.textContent = contenido;
+  return td;
+}
+
+function boton(texto, clase, alHacerClic) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = clase;
+  b.textContent = texto;
+  b.addEventListener("click", alHacerClic);
+  return b;
+}
+
+function alternarSeleccion(id, casilla) {
+  if (casilla.checked) {
+    if (estado.seleccion.length >= 2) {
+      casilla.checked = false;
+      $("ayuda-comparacion").textContent = "Solo se pueden comparar dos ensayos a la vez.";
+      return;
+    }
+    estado.seleccion.push(id);
+  } else {
+    estado.seleccion = estado.seleccion.filter((otro) => otro !== id);
+  }
+  actualizarComparacion();
+}
+
 async function cargarHistorial() {
-  // Se completa en la Task 10.
+  let ensayos;
+  try {
+    ensayos = await pedir("GET", "/tests");
+  } catch (error) {
+    mostrarAviso(error.message);
+    return;
+  }
+  estado.ensayos = ensayos;
+  estado.seleccion = estado.seleccion.filter((id) => ensayos.some((e) => e.id === id));
+  const cuerpo = $("filas-historial");
+  cuerpo.replaceChildren();
+  if (ensayos.length === 0) {
+    const fila = document.createElement("tr");
+    const vacia = celda("Todavía no hay ensayos guardados.");
+    vacia.colSpan = 9;
+    fila.append(vacia);
+    cuerpo.append(fila);
+  }
+  for (const ensayo of ensayos) {
+    const casilla = document.createElement("input");
+    casilla.type = "checkbox";
+    casilla.checked = estado.seleccion.includes(ensayo.id);
+    casilla.setAttribute("aria-label", `Comparar ${ensayo.filename}`);
+    casilla.addEventListener("change", () => alternarSeleccion(ensayo.id, casilla));
+
+    const nombre = document.createElement("b");
+    nombre.textContent = ensayo.filename;
+    const insignia = document.createElement("span");
+    insignia.className = ensayo.result ? "status" : "status pendiente";
+    insignia.textContent = ensayo.result ? "Procesado" : "Sin procesar";
+    const acciones = document.createElement("span");
+    acciones.append(
+      boton("Abrir", "boton-fila", () => { abrirEnsayo(ensayo.id); $("analisis").scrollIntoView({ behavior: "smooth" }); }),
+      boton("Eliminar", "boton-fila danger", () => eliminarEnsayo(ensayo)),
+    );
+
+    const fila = document.createElement("tr");
+    fila.append(
+      celda(casilla),
+      celda(nombre),
+      celda(ensayo.material),
+      celda(formato(ensayo.thickness_mm, 3)),
+      celda(ensayo.result ? `${formato(ensayo.result.pm_n, 0)} N` : "—"),
+      celda(ensayo.result ? `${formato(ensayo.result.rm_mpa, 0)} MPa` : "—"),
+      celda(new Date(ensayo.uploaded_at).toLocaleDateString("es-AR")),
+      celda(insignia),
+      celda(acciones),
+    );
+    cuerpo.append(fila);
+  }
+  actualizarComparacion();
 }
 
 function actualizarComparacion() {
