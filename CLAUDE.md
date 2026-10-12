@@ -17,7 +17,7 @@ entrega, no documentación de uso. El `README.md` de la raíz es el índice.
 |---------|---------|--------|
 | `TP1/` | Bad UI: selector astronómico de fecha (un solo HTML) | Entregado. **Congelado: no se modifica.** |
 | `TP2/` | Contrato OpenAPI de una API para SPTERO | En curso |
-| `tp-final/` | Trabajo final: SPTERO Web, individual, construido sobre el contrato del TP2 | En curso |
+| `tp-final/` | Trabajo final: SPTERO Web, individual, construido sobre el contrato del TP2 | Entregado |
 
 ## Qué se evalúa, y por qué trabajamos así
 
