@@ -112,3 +112,35 @@ def test_transaccion_confirma_al_salir_bien(con):
         assert con.in_transaction
     assert not con.in_transaction
     assert repository.obtener_ensayo(con, test_id) is not None
+
+
+class _ConexionQueFallaAlConfirmar:
+    """Proxy de la conexión: el COMMIT falla como si la base estuviera bloqueada."""
+
+    def __init__(self, con):
+        self._con = con
+
+    def __getattr__(self, nombre):
+        return getattr(self._con, nombre)
+
+    def execute(self, sql, *args):
+        if sql == "COMMIT":
+            raise sqlite3.OperationalError("database is locked")
+        return self._con.execute(sql, *args)
+
+
+def test_transaccion_deshace_si_falla_el_commit(con):
+    falsa = _ConexionQueFallaAlConfirmar(con)
+    with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+        with repository.transaccion(falsa):
+            _crear(falsa)
+    assert not con.in_transaction
+    assert repository.listar_ensayos(con) == []
+
+
+def test_transaccion_no_tapa_el_error_si_sqlite_ya_deshizo(con):
+    with pytest.raises(ValueError, match="original"):
+        with repository.transaccion(con):
+            con.execute("ROLLBACK")  # como si SQLite hubiera deshecho por su cuenta
+            raise ValueError("original")
+    assert not con.in_transaction

@@ -107,10 +107,14 @@ def transaccion(con):
     con.execute("BEGIN IMMEDIATE")
     try:
         yield
+        con.execute("COMMIT")
     except BaseException:
-        con.execute("ROLLBACK")
+        # Si el COMMIT falló la transacción sigue abierta; si SQLite ya la
+        # deshizo por su cuenta, no hay nada que deshacer. En ambos casos se
+        # relanza el error original, nunca el del ROLLBACK.
+        if con.in_transaction:
+            con.execute("ROLLBACK")
         raise
-    con.execute("COMMIT")
 
 
 def _a_dict(fila) -> dict:

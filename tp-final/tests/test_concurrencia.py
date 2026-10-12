@@ -46,9 +46,8 @@ def ensayo_procesado(conexiones, raw_sintetico):
 class _Frenado:
     """Envoltorio de `service.analizar`: la primera llamada se frena a mitad del cálculo."""
 
-    def __init__(self, real, falla=None):
+    def __init__(self, real):
         self.real = real
-        self.falla = falla
         self.dentro = threading.Event()
         self.liberar = threading.Event()
         self.llamadas = 0
@@ -58,8 +57,6 @@ class _Frenado:
         if self.llamadas == 1:
             self.dentro.set()
             self.liberar.wait(ESPERA_S)
-            if self.falla is not None:
-                raise self.falla
         return self.real(*args, **kwargs)
 
 
@@ -163,9 +160,10 @@ def test_patch_que_falla_en_el_calculo_hace_rollback(monkeypatch, conexiones, en
 def test_excepcion_cualquiera_en_el_calculo_hace_rollback(monkeypatch, conexiones, ensayo_procesado):
     con, _ = conexiones
     antes = repository.obtener_ensayo(con, ensayo_procesado)
-    monkeypatch.setattr(service, "analizar", _Frenado(service.analizar, falla=RuntimeError("boom")))
-    # La primera llamada se frena hasta el timeout de liberar; se libera de antemano.
-    service.analizar.liberar.set()
+    def falla(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(service, "analizar", falla)
     with pytest.raises(RuntimeError):
         service.procesar(con, ensayo_procesado, ParametrosProcesamiento(beta=0.4))
     assert not con.in_transaction
