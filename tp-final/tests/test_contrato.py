@@ -47,3 +47,19 @@ def test_test_update_solo_espesor():
     test_update = cargar_contrato()["components"]["schemas"]["TestUpdate"]
     assert test_update["required"] == ["thickness_mm"]
     assert set(test_update["properties"]) == {"thickness_mm"}
+
+
+from app.main import crear_app
+
+SCHEMAS_COMPARTIDOS = ["Test", "TestUpdate", "ProcessingRequest", "ProcessingParameters", "Result", "Curve"]
+
+
+def test_la_app_implementa_las_operaciones_del_contrato():
+    assert operaciones(crear_app(":memory:").openapi()) == operaciones(cargar_contrato())
+
+
+def test_los_campos_de_la_app_coinciden_con_el_contrato():
+    app_schemas = crear_app(":memory:").openapi()["components"]["schemas"]
+    contrato_schemas = cargar_contrato()["components"]["schemas"]
+    for nombre in SCHEMAS_COMPARTIDOS:
+        assert set(app_schemas[nombre]["properties"]) == set(contrato_schemas[nombre]["properties"]), nombre
