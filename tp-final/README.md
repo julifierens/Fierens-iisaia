@@ -92,6 +92,57 @@ un archivo malo. Lo detectó la revisión final de la rama y tiene su test.
 (la caracterización tiene 14 tests en vez de 13) porque la regla del core pide
 comparar cada función copiada.
 
+### Decisiones de la etapa 3 (API)
+
+Esta etapa la ejecutó el agente con autonomía delegada: le pedí que no me
+consultara entre tareas y que frenara solo ante decisiones de alcance o de
+arquitectura. Las decisiones de abajo las tomó el agente al implementar o al
+revisar, y las dejo escritas para revisarlas antes del PR.
+
+**Rechazar números no finitos en todas las entradas.** Pydantic acepta `inf`, y
+el parser JSON de Starlette acepta `Infinity` y `NaN`. Un espesor infinito pasaba
+el `gt=0`, se guardaba y rompía la respuesta con un 500. Todas las entradas
+numéricas usan `allow_inf_nan=False`. Con esto se resolvió el pendiente 1 de la
+etapa 2.
+
+**Un `testId` fuera de int64 es un parámetro inválido.** El contrato ya declara
+`format: int64`, así que un id más grande responde 400 `INVALID_PARAMETERS` y no
+404. Antes daba 500 porque sqlite3 no puede ligar ese número.
+
+**Los mensajes de validación se traducen.** El plan armaba el `message` con el
+texto de Pydantic, que está en inglés, y eso contradecía la restricción de
+mensajes en español. Se traduce cada tipo de error, con un mensaje genérico de
+respaldo.
+
+**Un recálculo que no da un número finito es `PROCESSING_FAILED`.** Con un
+espesor absurdamente chico (1e-170) el core lanzaba `ZeroDivisionError` y la API
+respondía 500. Con β = 1e308 se guardaba un Rm infinito. El servicio captura
+también `ArithmeticError` y rechaza resultados no finitos con 422, sin tocar el
+core.
+
+**Cuerpos JSON con tipos estrictos.** `{"thickness_mm": true}` se guardaba como
+1 mm. Los cuerpos de `PATCH` y `PUT` validan tipos en modo estricto, como dice el
+contrato (`type: number`/`boolean`). Los números enteros siguen valiendo. El
+formulario de `POST` sigue aceptando texto, porque los campos multipart llegan
+como texto.
+
+**El test de contrato compara más que las rutas.** Ahora la app declara sus
+respuestas de error con un modelo `Error`, y `test_contrato.py` compara también
+los campos requeridos y los códigos de estado de cada operación contra
+`openapi.yaml`. Antes un código o un `required` faltante pasaba sin aviso.
+
+**Nombres de archivo no ASCII en la descarga.** Starlette codifica las cabeceras
+en latin-1, así que "ensayo_€.raw" daba 500. Se usa `filename*=utf-8''…`, igual
+que `FileResponse`.
+
+**Queda para decidir: pedidos concurrentes sobre el mismo ensayo.** La revisión
+final encontró que un `PUT` que llega mientras corre un `PATCH` puede quedar
+pisado sin aviso. La atomicidad que pide la spec se cumple: si el recálculo falla,
+no cambia nada. Arreglarlo exige elegir entre reorganizar las transacciones del
+repositorio o serializar los pedidos desde la interfaz, y esa elección es mía.
+Está descrita en [docs/pendientes.md](docs/pendientes.md) y la tengo que resolver
+antes de la etapa 4.
+
 Los hallazgos de las revisiones que quedaron para más adelante están en
 [docs/pendientes.md](docs/pendientes.md).
 
@@ -109,6 +160,18 @@ Los hallazgos de las revisiones que quedaron para más adelante están en
 - Cada commit lleva el `Co-Authored-By` del modelo que lo escribió (Haiku en las
   tareas 1 a 3, Sonnet en la 4).
 
+**Etapa 3.**
+- Igual que en la etapa 2: un subagente implementaba cada tarea y otro la revisaba
+  contra la spec, el contrato y la atomicidad del `PATCH`. Al final hubo una
+  revisión de toda la rama, una ronda de correcciones con su re-revisión y el
+  `verificador-cientifico`.
+- El verificador comparó la API contra el script original con `P3_304L_L.raw`:
+  sin corrección, con corrección y con `PATCH` a 0,25 mm. La diferencia relativa
+  fue 0 en las seis magnitudes.
+- Además se levantó uvicorn sobre una base temporal y se probó todo con `curl`:
+  alta, procesamiento, idempotencia, `PATCH`, curva, descarga byte a byte y
+  borrado.
+
 ## Qué salió mal y cómo lo corregí
 
 **Etapa 2.**
@@ -121,5 +184,24 @@ Los hallazgos de las revisiones que quedaron para más adelante están en
 - **El docstring contradecía el código.** Decía que se usaban los valores por
   defecto del original, y `aplicar_correccion` no lo es. Lo detectó el
   verificador científico y lo corregí.
+
+**Etapa 3.**
+- **El plan contradecía su propia restricción.** El handler de validación que
+  traía el plan armaba los mensajes con el texto de Pydantic, en inglés. Lo
+  notamos al probar con el servidor real ("Input should be greater than 0") y la
+  revisión final lo confirmó. Se tradujo por tipo de error, con tests.
+- **El test de contrato era débil.** Solo comparaba rutas y nombres de campos. La
+  revisión de la Task 8 lo marcó y se reforzó (ver decisiones).
+- **Entradas que terminaban en 500.** Ids fuera de int64, números infinitos,
+  espesores absurdamente chicos y nombres de archivo con "€". Ninguno estaba en el
+  plan; los encontraron las revisiones y cada uno tiene su test.
+- **Una decisión que se tomó mal y se corrigió.** Al empezar, el agente dio por
+  aceptable la lectura fuera de la transacción en el `PATCH`, pensando que lo
+  único que podía pasar era un 500 si se borraba el ensayo en el medio. La
+  revisión final mostró que también se puede perder una actualización sin aviso.
+  Se corrigió la descripción y quedó como decisión pendiente.
+- **Un permiso que bloqueó la copia del contrato.** El `cp` desde `../TP2` fue
+  denegado. El subagente copió el contrato leyéndolo y escribiéndolo de nuevo, y
+  después se comprobó con `diff` que solo cambiaban las ediciones del plan.
 
 ## Prompts
