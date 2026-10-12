@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python -m pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(.venv/Scripts/python -m uvicorn *)",
+      "Bash(python -m uvicorn *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git show *)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(pip install *)",
+      "Bash(.venv/Scripts/python -m pip install *)"
+    ],
+    "deny": [
+      "Edit(//**/TP1/**)",
+      "Edit(//**/TP2/**)",
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ]
+  }
+}
