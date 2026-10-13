@@ -10,4 +10,4 @@ Este repositorio se utilizará durante el cursado para registrar las distintas e
 
 - [TP 1 — Selector astronómico de fecha](TP1/README.md): Bad UI en un solo archivo HTML.
 - [TP 2 — API de SPTERO Web](TP2/README.md): contrato OpenAPI de la API para procesar ensayos Small Punch Test.
-- [TP final — SPTERO Web](tp-final/README.md): aplicación web para analizar ensayos Small Punch Test (en curso).
+- [TP final — SPTERO Web](tp-final/README.md): aplicación web para analizar ensayos Small Punch Test (listo para entregar).
