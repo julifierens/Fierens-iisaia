@@ -955,7 +955,7 @@ Expected: todos `SKIPPED` con el motivo "Definir SPTERO_ORIGINAL y SPTERO_RAW_SA
 
 Cambiar temporalmente en `sptero_core/calculos.py` `a = 0.346` por `a = 0.347`, y correr con las variables definidas:
 ```bash
-SPTERO_ORIGINAL="C:/Users/julif/Documents/Maestría/Programa SPETERO/Programa SPTERO.py" SPTERO_RAW_SAMPLE="C:/Users/julif/Documents/Maestría/Ensayos - SPT/A Julian Fierens/P3_304L_L.raw" .venv/Scripts/python -m pytest tests/test_caracterizacion.py -v
+SPTERO_ORIGINAL="C:/ruta/a/Programa SPTERO.py" SPTERO_RAW_SAMPLE="C:/ruta/a/P3_304L_L.raw" .venv/Scripts/python -m pytest tests/test_caracterizacion.py -v
 ```
 Expected: FAIL en `test_funcion_copiada_es_identica[...sigma_y_from_py]`, `test_pipeline_igual_al_original` y `test_valores_de_referencia_de_la_spec`. **Revertir el cambio.**
 
@@ -2824,7 +2824,7 @@ Expected: todo en verde, incluido `test_sirve_la_interfaz`.
 Levantar `sptero-web` con `preview_start` (usa `.claude/launch.json`). Con las herramientas `Claude_Browser`:
 1. Cargar el `.raw` real por la API (el navegador integrado no puede elegir archivos locales):
    ```bash
-   .venv/Scripts/python -c "import httpx,sys; r=httpx.post('http://localhost:8000/tests', files={'file': ('P3_304L_L.raw', open(sys.argv[1],'rb'))}, data={'material':'304L','thickness_mm':'0.5'}); print(r.status_code, r.json()['id'])" "C:/Users/julif/Documents/Maestría/Ensayos - SPT/A Julian Fierens/P3_304L_L.raw"
+   .venv/Scripts/python -c "import httpx,sys; r=httpx.post('http://localhost:8000/tests', files={'file': ('P3_304L_L.raw', open(sys.argv[1],'rb'))}, data={'material':'304L','thickness_mm':'0.5'}); print(r.status_code, r.json()['id'])" "C:/ruta/a/P3_304L_L.raw"
    ```
    y abrirlo desde la consola del navegador con `abrirEnsayo(<id>)` (la Task 10 agrega el botón "Abrir"). Expected: "Guardado · sin procesar" y la curva cruda.
 2. Clic en **Recalcular** sin corrección. Expected: Pm 2.372,2 · dm 2,2709 · Rm 578,7 · Py 274,9 · σy 380,5; marcadores de Pm y Py sobre la curva; "Guardado · procesado".

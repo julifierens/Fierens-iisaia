@@ -199,8 +199,8 @@ archivos originales) y el recorrido en el navegador salieron bien.
    detección de la fila `"Time` o los nombres de columna. No se probó con un
    archivo así.
 2. **`GET /favicon.ico` responde 404** en el log del servidor. Es cosmético.
-3. **El plan tiene dos comandos con rutas locales** (la carpeta de ensayos de
-   Julián). No exponen datos y ya están en el historial público; se dejan.
+3. ~~**El plan tenía dos comandos con rutas locales** (la carpeta de ensayos de
+   Julián)~~: se reemplazaron por rutas genéricas (`C:/ruta/a/...`).
 4. **`test_caracterizacion.py` no compara `py_t10_displacement_mm` contra la tabla de
    la spec** (la tabla no lo tiene). Sí lo compara contra el original en
    `test_pipeline_igual_al_original`.

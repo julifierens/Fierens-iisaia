@@ -7,6 +7,9 @@ en varias sesiones; cada entrada indica a cuál pertenece.
 
 Los "Qué buscaba" de las entradas 1 a 3 los redactó el modelo a pedido mío (prompt
 4), a partir de los objetivos que habíamos acordado en la conversación, y los revisé.
+Los de las entradas 4 a 15 los propuso Claude en la etapa 5 a partir del texto real
+de cada prompt y de las decisiones que tomé en él; los revisé, les hice ajustes y los
+aprobé.
 
 Las entradas 6 a 15 se registraron en la etapa 5 y no en el momento, como acordamos
 en el prompt 9. Un subagente copió los prompts de los transcripts de cada sesión y
@@ -174,7 +177,12 @@ Recordá que el nuevo PATCH de espesor debe garantizar que, si falla el recálcu
 Al terminar, detenete para que revisemos el plan antes de implementar. No hagas todavía el PR ni avances a la etapa 2.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Cerrar la etapa 0: completar los "Qué buscaba" de 1 a 3 y el
+porqué de las nueve decisiones, justificadas solo con los cuatro criterios acordados.
+Después, pasar a un plan de implementación concreto con `writing-plans`, con tareas
+verificables, tests y criterios de aceptación. Quería que el plan garantizara que,
+si falla el recálculo del `PATCH`, no cambian ni el espesor ni el resultado, y
+revisarlo antes de implementar.
 
 **Qué devolvió:** Completó los "Qué buscaba" de las entradas 1 a 3, aclarando en el
 encabezado que los redactó el modelo a pedido mío, y justificó las nueve decisiones
@@ -216,7 +224,12 @@ Antes de iniciar el desarrollo, quiero integrar las etapas 0 y 1 en main mediant
 No empieces todavía la etapa 2. Cuando termines, indicame cómo crear y fusionar el PR desde Claude Desktop o GitHub.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Cerrar las tres recomendaciones del plan: sumar
+`py_t10_displacement_mm` (null si no hay cruce), ejecutar con subagent-driven sin
+verificaciones que no aporten, y commitear por tarea después de verificar, con push,
+PR y merge solo con mi aprobación. También quería integrar las etapas 0 y 1 en
+`main` con un PR antes de desarrollar, para que las ramas siguientes partieran de una
+base actualizada, y saber cómo crear y fusionar ese PR.
 
 **Qué devolvió:** Agregó `py_t10_displacement_mm` a la spec (pipeline, cambios del
 contrato y tabla `results`) y alineó los nombres de los archivos de test. En el
@@ -238,7 +251,8 @@ Sesión 1 (12/10/2026).
 Subí la rama feature/tp-final-spec a GitHub. No hagas el PR ni el merge todavía. Avisame cuando esté subida.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Publicar la rama en GitHub para abrir el PR yo, sin que el
+agente lo creara ni hiciera el merge.
 
 **Qué devolvió:** Hizo el `git push` de `feature/tp-final-spec` (último commit
 `6316594`, cierre de la etapa 1) y dejó la rama local siguiendo a la remota. No
@@ -265,7 +279,11 @@ Podés trabajar con autonomía y hacer commits por tarea después de verificar l
 Detenete antes del push, PR o merge. No avances a la etapa 3.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Implementar el motor científico reutilizando las funciones del
+SPTERO original sin cambiar fórmulas, con TDD y subagent-driven, en su propia rama y
+sin tocar TP1 ni TP2. Quería validar contra el script original y el `.raw` real, no
+solo con curvas sintéticas, y ver el resultado del verificador científico antes de
+cualquier push.
 
 **Qué devolvió:** Con `subagent-driven-development`, encontró el script original y
 el `.raw` en rutas locales y comprobó la regla `deny` sobre `TP1/` intentando editar
@@ -301,7 +319,11 @@ Después ejecutá nuevamente toda la suite con el .raw real y el programa origin
 Si está todo bien, dejá la etapa 2 lista para el PR. No avances a la etapa 3 ni hagas push todavía.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Cerrar las dos decisiones pendientes: que un `.raw` dañado se
+informe como error de archivo, sin tocar los algoritmos, y mantener la corrección de
+flexibilidad desactivada por defecto, como en el TP2, documentando la diferencia con
+el original. También quería que los hallazgos pendientes del ledger quedaran en
+archivos versionados y volver a validar todo con el original antes del commit.
 
 **Qué devolvió:** Escribió `test_archivo_corrupto`, lo vio fallar con `_csv.Error`
 y después hizo que `leer_raw` lance `ValueError`. Corrigió el docstring, creó
@@ -330,7 +352,9 @@ El registro de prompts lo terminamos de completar en la etapa de documentación 
 No hagas el merge ni empieces la etapa 3. Pasame el enlace para crear el PR.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Registrar en la spec la diferencia del valor por defecto, en
+un commit propio, y subir la rama para el PR. El registro de prompts quedaba para la
+documentación final.
 
 **Qué devolvió:** Editó la spec §4 en un commit propio (`aa7d568`), subió la rama y pasó
 el enlace del PR. Informó que la rama tenía 7 commits sobre `main`, pero eran 6
@@ -364,7 +388,11 @@ Documentá los problemas y decisiones importantes. Mostrame los resultados reale
 No hagas push, PR ni merge. No avances a la etapa 4.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Tener la API completa con persistencia real en SQLite sobre el
+motor ya validado, siguiendo la spec y el contrato v1.1. Me importaban sobre todo la
+atomicidad del `PATCH`, la idempotencia del `PUT`, el manejo de errores y que
+FastAPI coincidiera con `openapi.yaml`. Le di autonomía entre tareas, pero quería
+ver los resultados reales de los tests y una revisión global antes del PR.
 
 **Qué devolvió:** No arrancó. Revisó el estado sin cambiar nada y pidió que
 confirmara: el pedido le había llegado entero como texto pegado y le daba una
@@ -390,7 +418,8 @@ Al terminar, ejecutá la suite completa, el verificador científico y la revisi�
 No hagas push, PR ni merge, y no avances a la etapa 4.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Confirmar la autonomía que el agente me pidió ratificar y fijar
+el límite: frenar solo ante una decisión que cambie el alcance o la arquitectura.
 
 **Qué devolvió:** Commits `c1c683f` (contrato v1.1), `454efcf` (repositorio),
 `13c2716` (servicio), `4acb45f` (rutas), `60bf039` (ids fuera de int64 y test de
@@ -427,7 +456,11 @@ Después ejecutá la suite completa y dejá la etapa lista para el PR. Hacé los
 No hagas el merge ni avances a la etapa 4.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Resolver la decisión que había dejado abierta la etapa 3: que
+`PATCH` y `PUT` no puedan pisarse, con `BEGIN IMMEDIATE`, rollback si falla el
+cálculo y tests que reproduzcan la concurrencia. Aprobé el resto de las decisiones y
+dejé afuera el warning de httpx y cualquier ampliación del MVP. También quería el
+contrato validado y la rama lista para el PR.
 
 **Qué devolvió:** Commits `a808ac0` (`PATCH` y `PUT` serializados con
 `BEGIN IMMEDIATE`, más `tests/test_concurrencia.py`), `ac456fe` (no dejar
@@ -470,7 +503,12 @@ Priorizá una aplicación funcional de punta a punta. No agregues funcionalidade
 Detenete antes del push, PR o merge. No avances a la etapa 5.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Tener la interfaz funcionando de punta a punta contra la API
+existente, respetando el mockup: carga y procesamiento de los `.raw`, gráficos
+interactivos con Plotly, historial, reapertura, reprocesamiento y comparación de dos
+curvas del mismo tipo. Pedí que no hubiera datos simulados ni resultados fijos, y
+que el recorrido se probara en el navegador con `P3_304L_L.raw`, o que me avisara si
+no se podía.
 
 **Qué devolvió:** Commits `48b2523` (página de análisis), `c990742` (historial),
 `1f1f394` (comparación), `75de2f3` (capturas), `aa2c6e3` (correcciones de la
@@ -501,7 +539,8 @@ Dejá documentados los pendientes menores para futuras versiones, sin seguir amp
 Subí feature/tp-final-ui a GitHub y pasame el enlace para crear el PR hacia main. No hagas el merge ni avances todavía a la etapa 5.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Aprobar la interfaz tal como quedó, dejar documentados los
+pendientes menores para otra versión sin ampliar el MVP y subir la rama para el PR.
 
 **Qué devolvió:** Respondió que los pendientes ya estaban en `docs/pendientes.md`
 (commit `3e2155b`), así que no hizo otro commit. Subió la rama (6 commits) y pasó el
@@ -534,7 +573,13 @@ Al terminar quiero un informe breve: qué quedó listo, qué falta completar por
 No hagas push, PR ni merge hasta que revisemos el resultado.
 ```
 
-**Qué buscaba:** _(completa Julián)_
+**Qué buscaba:** Dejar SPTERO Web listo para entregar y reproducir: comprobar que
+funciona desde una instalación limpia, completar el README como informe con
+instrucciones para Windows, revisar el cumplimiento de la consigna, completar
+`prompts.md` solo con prompts reales, volver a validar los resultados con los
+originales y confirmar que el repositorio no publica datos privados. Todo sin
+funcionalidades nuevas ni cambios en lo ya aprobado, y con un informe antes de
+cualquier push.
 
 **Qué devolvió:** Trabajó inline con `executing-plans`, retomando el ledger de
 las etapas anteriores. Actualizó `main` por fast-forward (el local no tenía el merge

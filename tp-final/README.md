@@ -339,23 +339,22 @@ def error_validacion(_request, error: RequestValidationError):
 
 ## Observaciones arquitectónicas
 
-- **Un solo proceso sirve la API y la interfaz.** No hay CORS ni paso de build, y la
-  app se levanta con un comando. El costo es que la interfaz depende del CDN de
-  Plotly.
+- **Un solo proceso sirve la API y la interfaz.** No hace falta CORS y la app se
+  levanta con un comando. Aparte, la interfaz no tiene paso de build: Plotly.js se
+  carga desde un CDN, y por eso los gráficos necesitan conexión a internet.
 - **El `.raw` original vive en la base como BLOB.** Cada resultado se puede
   reproducir desde su fuente, y la curva procesada no se guarda: se recalcula al
-  pedirla, con los parámetros guardados. Para un laboratorio con cientos de ensayos
-  de decenas de KB alcanza; con archivos mucho más grandes convendría guardarlos
-  aparte.
+  pedirla, con los parámetros guardados.
 - **La consistencia la da SQLite, no la interfaz.** `PATCH` y `PUT` leen, calculan y
   escriben dentro de `BEGIN IMMEDIATE`, así que dos pedidos sobre el mismo ensayo se
   serializan aunque la interfaz los mande seguidos.
 - **El core está aislado del framework.** Como no importa nada de `app/`, se puede
   comparar función por función con el script original y reutilizar en otra
   interfaz (por ejemplo, procesamiento en lote) sin tocarlo.
-- **Lo que quedaría por ordenar si el proyecto crece:** el esquema se crea en cada
-  conexión (podría hacerse una vez al arrancar), las rutas son síncronas, y
-  `app.js` concentra toda la interfaz en un archivo de 475 líneas.
+- **Trabajo futuro, si el proyecto crece:** crear el esquema una vez al arrancar en
+  lugar de en cada conexión, evaluar rutas asíncronas, considerar guardar los
+  archivos fuera de la base si aumentan el volumen o el tamaño de los ensayos, y
+  dividir `app.js` (hoy, 475 líneas con toda la interfaz) en módulos.
 
 ## Decisiones que tomé yo
 
@@ -546,7 +545,7 @@ herramienta de captura del navegador integrado.
 
 ### Decisiones de la etapa 5 (entrega)
 
-Las tomó el agente en esta etapa; quedan para mi revisión antes del PR.
+Las tomó el agente en esta etapa; las revisé y las aprobé.
 
 **La instalación limpia se probó en un clon temporal con ruta corta.** El clon de la
 rama dentro del directorio temporal de la sesión falló por el límite de 260
@@ -560,12 +559,13 @@ hallazgos nuevos quedaron en `docs/pendientes.md`.
 científica se usaron cuatro ensayos reales. En la tabla de "Validación" quedan P3
 (que ya está en la spec) y 508-1 (que ya se ve en la captura de la etapa 4); de
 P10_304L_L y P11_304L_L solo se informa que la diferencia con el original fue 0.
-Publicar sus valores queda para que lo decida yo.
+Decidí no publicar sus valores.
 
-**Las rutas locales que aparecen en el plan no se borran.** El plan tiene dos
-comandos con la ruta de mi carpeta de ensayos. No exponen datos (los `.raw` no están
-en el repositorio) y ya están en el historial público, así que borrarlas de la
-última versión no cambiaría nada.
+**Las rutas personales del plan se reemplazaron por rutas genéricas.** El plan
+tenía dos comandos con la ruta de mi carpeta de ensayos; ahora usan
+`C:/ruta/a/...`, como el resto de la documentación. No exponían datos (los `.raw` no
+están en el repositorio), pero las rutas genéricas sirven igual a quien quiera
+repetir la prueba. Las versiones anteriores siguen en el historial de git.
 
 ## Cómo gestioné el contexto
 
